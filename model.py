@@ -6,7 +6,7 @@
 
 import torch.nn as nn
 import torch.nn.functional as F
-from dgl.nn import GraphConv
+from torch_geometric.nn import GCNConv
 
 
 class LogReg(nn.Module):
@@ -48,20 +48,21 @@ class GCN(nn.Module):
         self.n_layers = n_layers
         self.convs = nn.ModuleList()
 
-        self.convs.append(GraphConv(in_dim, hid_dim, norm='both'))
+        self.convs.append(GCNConv(in_dim, hid_dim))
 
         if n_layers > 1:
             for i in range(n_layers - 2):
-                self.convs.append(GraphConv(hid_dim, hid_dim, norm='both'))
-            self.convs.append(GraphConv(hid_dim, out_dim, norm='both'))
+                self.convs.append(GCNConv(hid_dim, hid_dim))
+            self.convs.append(GCNConv(hid_dim, out_dim))
 
-    def forward(self, graph, x):
+    def forward(self, x, edge_index):
 
         for i in range(self.n_layers - 1):
-            x = F.relu(self.convs[i](graph, x))
-        x = self.convs[-1](graph, x)
+            x = F.relu(self.convs[i](x, edge_index))
+        x = self.convs[-1](x, edge_index)
 
         return x
+
 
 class CCA_SSG(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, use_mlp = False):
@@ -71,16 +72,15 @@ class CCA_SSG(nn.Module):
         else:
             self.backbone = MLP(in_dim, hid_dim, out_dim)
 
-    def get_embedding(self, graph, feat):
-        out = self.backbone(graph, feat)
+    def get_embedding(self, data1):
+        out = self.backbone(data1.x, data1.edge_index)
         return out.detach()
 
-    def forward(self, graph1, feat1, graph2, feat2):
-        h1 = self.backbone(graph1, feat1)
-        h2 = self.backbone(graph2, feat2)
+    def forward(self, data1, data2):
+        h1 = self.backbone(data1.x, data1.edge_index)
+        h2 = self.backbone(data2.x, data2.edge_index)
 
         z1 = (h1 - h1.mean(0)) / h1.std(0)
         z2 = (h2 - h2.mean(0)) / h2.std(0)
 
         return z1, z2
-

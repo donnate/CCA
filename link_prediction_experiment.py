@@ -101,9 +101,9 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                     test_pos, test_neg = train_data.pos_edge_label_index, train_data.neg_edge_label_index
                     auc, ap = test(model, optimizer, train_data, test_data)
                     print('Epoch: {:03d}, LOSS: {:.4f}, AUC: {:.4f}, AP: {:.4f}'.format(epoch, loss, auc, ap))
-            results += [[exp, args.model, args.non_linear, args.normalize, args.lr, args.channels,
+            results += [[exp, args.model, args.dataset, args.non_linear, args.normalize, args.lr, args.channels,
                                   training_rate, val_ratio, test_ratio, alpha, auc, ap, epoch]]
-            res1 = pd.DataFrame(results, columns=['exp', 'model', 'non-linearity', 'normalize',  'lr', 'channels',
+            res1 = pd.DataFrame(results, columns=['exp', 'model', 'dataset', 'non-linearity', 'normalize',  'lr', 'channels',
                                                   'train_rate', 'val_ratio',
                                                   'test_ratio', 'alpha', 'auc', 'ap', 'epoch'])
             res1.to_csv(file_path  +  args.model + str(args.non_linear) + "_norm" +  str(args.normalize) +  "_lr"+ str(args.lr) +
