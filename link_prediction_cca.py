@@ -104,7 +104,7 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
         lr1 = args.lr
         wd1 = 0
         optimizer = torch.optim.Adam(model.parameters(), lr=lr1, weight_decay=wd1)
-        for epoch in range(2):
+        for epoch in range(25):
             model.train()
             optimizer.zero_grad()
 
