@@ -14,7 +14,9 @@ from torch_geometric.utils import (
     add_self_loops,
     negative_sampling,
     remove_self_loops,
+     to_dense_adj
 )
+
 
 from VGNAE import *
 from GeneralizedVGAE import *
@@ -40,7 +42,7 @@ parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--result_file', type=str, default="/results/link_prediction_all_")
 args = parser.parse_args()
 
-file_path = os.getcwd() + args.result_file + args.datasets +'_normalize' +\
+file_path = os.getcwd() + args.result_file + args.dataset +'_normalize' +\
  str(args.normalize) + '_nonlinear' + str(args.non_linear) + '_lr' + str(args.lr) + '.csv'
 
 
@@ -93,7 +95,7 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
         transform = RandomLinkSplit(num_val=val_ratio, num_test=test_ratio,
                                     is_undirected=True, split_labels=True)
         if model in ['Gen-VGNAE', 'Gen-GNAE']:
-            alphas = alpha in np.arange(0,1.1, 0.1)
+            alphas = np.arange(0,1.1, 0.1)
         else:
             alphas = [1.0, 1.5, 1.8, 2.0, 5.0, 10.]
         for alpha in alphas:
@@ -156,8 +158,6 @@ data = dataset[0]
 in_dim = data.num_features
 N = data.num_nodes
 
-print(args.add_negative_samples)
-
 from sklearn.metrics import roc_auc_score, average_precision_score
 def compute_loss_para(adj):
     pos_weight = ((adj.shape[0] * adj.shape[0] - adj.sum()) / adj.sum())
@@ -197,16 +197,16 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
     val_ratio = (1.0 - training_rate) / 3
     test_ratio = (1.0 - training_rate) / 3 * 2
     for add_neg_samples in [True, False]:
-        for lambd in np.logspace(-7, 2, num=10, endpoint=True, base=10.0, dtype=None, axis=0):
-            for out_channels in [32, 64, 128, 256, 512]:
-                for drop_rate_edge in [0., 0.05, 0.1, 0,15, 0.2, 0.25, 0,3, 0.4, 0.5, 0.7]:
+        for lambd in np.logspace(-7, 2, num=1, endpoint=True, base=10.0, dtype=None, axis=0):#np.logspace(-7, 2, num=10, endpoint=True, base=10.0, dtype=None, axis=0):
+            for channels in [32, 64, 128, 256, 512]:
+                for drop_rate_edge in [0.01, 0.05, 0.1, 0,15, 0.2, 0.25, 0,3, 0.4, 0.5, 0.7]:
                     out_dim = channels
                     hid_dim = channels
                     model = CCA_SSG(in_dim, hid_dim, out_dim, n_layers, use_mlp=False)
-                    lr1 = args.lr
+                    lr1 = 0.005
                     wd1 = 0
                     optimizer = torch.optim.Adam(model.parameters(), lr=lr1, weight_decay=wd1)
-                    for epoch in range(200):
+                    for epoch in range(300):
                         model.train()
                         optimizer.zero_grad()
 
@@ -252,7 +252,7 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                     #print(embeds.shape, adj_train.shape)
                     weight_tensor, norm = compute_loss_para(adj_train)
                     logreg = LogReg(embeds.shape[1], adj_train.shape[1])
-                    lr2 = 1e-2
+                    lr2 = args.lr
                     wd2 = 1e-4
                     opt = torch.optim.Adam(logreg.parameters(), lr=lr2, weight_decay=wd2)
 
@@ -305,10 +305,18 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
 
                         logreg.eval()
                         with torch.no_grad():
-                            val_roc, val_ap = get_scores(val_data.pos_edge_label_index, val_data.neg_edge_label_index, logits)
-                            test_roc, test_ap = get_scores(test_data.pos_edge_label_index, test_data.neg_edge_label_index, logits)
+                            try:
+                                val_roc, val_ap = get_scores(val_data.pos_edge_label_index, val_data.neg_edge_label_index, logits)
+                            except:
+                                val_roc, val_ap  = np.nan, np.nan
+                            try:
+                                test_roc, test_ap = get_scores(test_data.pos_edge_label_index, test_data.neg_edge_label_index, logits)
+                            except:
+                                test_roc, test_ap = np.nan, np.nan
 
-                            if val_roc >= best_val_roc:
+                            if np.isnan(val_roc):
+                                break
+                            if (np.isnan(val_roc) ==False) & (val_roc >= best_val_roc):
                                 best_val_roc = val_roc
 
                             current_loss = val_roc
