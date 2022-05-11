@@ -62,7 +62,7 @@ def train(model, optimizer, train_data, model_type):
     optimizer.zero_grad()
     z  = model.encode(train_data.x, train_data.pos_edge_label_index)
     loss = model.recon_loss(z, train_data.pos_edge_label_index) # + model.recon_loss(z, train_data.neg_edge_label_index)
-    if model_type in ['VNGAE', 'Gen-VNGAE']:
+    if model_type in ['VGNAE', 'Gen-VGNAE']:
         loss = loss + (1 / data.num_nodes) * model.kl_loss()
     loss.backward()
     optimizer.step()
@@ -89,7 +89,7 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
         print(exp)
         transform = RandomLinkSplit(num_val=val_ratio, num_test=test_ratio,
                                     is_undirected=True, split_labels=True)
-        if args.model in ['Gen-VNGAE', 'Gen-NGAE']:
+        if args.model in ['Gen-VGNAE', 'Gen-GNAE']:
             alphas = alpha in np.arange(0,1.1, 0.1)
         else:
             alphas = [1.0, 1.5, 1.8, 2.0, 5.0, 10.]
