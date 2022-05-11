@@ -81,8 +81,8 @@ def validation(model, train_data, val_data):
     return model.test(z, val_data.pos_edge_label_index, val_data.neg_edge_label_index)
 
 results =[]
-#for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
-for training_rate in [0.2]:
+for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
+#for training_rate in [0.2]:
     val_ratio = (1.0 - training_rate) / 3
     test_ratio = (1.0 - training_rate) / 3 * 2
     for exp in range(args.n_experiments):
@@ -92,7 +92,7 @@ for training_rate in [0.2]:
         if args.model in ['Gen-VNGAE', 'Gen-NGAE']:
             alphas = alpha in np.arange(0,1.1, 0.1)
         else:
-            alphas = [1.8]#[1.0, 1.5, 1.8, 2.0, 5.0, 10.]
+            alphas = [1.0, 1.5, 1.8, 2.0, 5.0, 10.]
         for alpha in alphas:
             train_data, val_data, test_data = transform(data)
             if args.model == 'Gen-GNAE':
@@ -127,17 +127,17 @@ for training_rate in [0.2]:
 
                 #### Add early stopping to prevent overfitting
                 out = validation(model, train_data, val_data)
-                # current_loss = out[1]
-                # if current_loss >= last_loss:
-                #     trigger_times += 1
-                #     #print('Trigger Times:', trigger_times)
-                #     if trigger_times >= patience:
-                #         #print('Early stopping!\nStart to test process.')
-                #         break
-                # else:
-                #     #print('trigger times: 0')
-                #     trigger_times = 0
-                # last_loss = current_loss
+                current_loss = out[1]
+                if current_loss >= last_loss:
+                    trigger_times += 1
+                    #print('Trigger Times:', trigger_times)
+                    if trigger_times >= patience:
+                        #print('Early stopping!\nStart to test process.')
+                        break
+                else:
+                    #print('trigger times: 0')
+                    trigger_times = 0
+                last_loss = current_loss
             results += [[exp, args.model, args.dataset, args.non_linear, args.normalize, args.lr, args.channels,
                                   training_rate, val_ratio, test_ratio, alpha, auc, ap, epoch]]
             res1 = pd.DataFrame(results, columns=['exp', 'model', 'dataset', 'non-linearity', 'normalize',  'lr', 'channels',

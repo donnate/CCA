@@ -11,9 +11,10 @@ import torch
 import torch_geometric as tg
 import pandas as pd
 import torch_geometric.transforms as T
+import torch.nn.functional as F
 from torch_geometric.utils import train_test_split_edges
 from torch_geometric.nn import GAE, VGAE, APPNP
-import torch_geometric.transforms as T
+
 
 
 from aggregation import *
@@ -31,6 +32,7 @@ class GCNEncoder(torch.nn.Module):
         if self.non_linearity: x = x.relu()
         if self.norm == True:
             x = F.normalize(x, p=2., dim=-1)
+            x = F.dropout(x, p=0.5, training=self.training)
         return self.conv2(x, edge_index)
 
 
@@ -48,4 +50,5 @@ class VariationalGCNEncoder(torch.nn.Module):
         if self.non_linearity: x = x.relu()
         if self.norm==True:
             x = F.normalize(x, p=2, dim=1)
+            x = F.dropout(x, p=0.5, training=self.training)
         return self.conv_mu(x, edge_index), self.conv_logstd(x, edge_index)

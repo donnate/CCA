@@ -11,9 +11,10 @@ import torch
 import torch_geometric as tg
 import pandas as pd
 import torch_geometric.transforms as T
+import torch.nn.functional as F
 from torch_geometric.utils import train_test_split_edges
 from torch_geometric.nn import GAE, VGAE, APPNP
-import torch_geometric.transforms as T
+import torch.nn.functional as F
 
 class Encoder(torch.nn.Module):
     def __init__(self, in_channels, out_channels, edge_index, model='GNAE', scaling_factor=1.8):
@@ -28,6 +29,7 @@ class Encoder(torch.nn.Module):
         if self.model == 'GNAE':
             x = self.linear1(x)
             x = F.normalize(x,p=2,dim=1)  * self.scaling_factor
+            x = F.dropout(x, p=0.5, training=self.training)
             x = self.propagate(x, edge_index)
             return x
 
@@ -37,6 +39,7 @@ class Encoder(torch.nn.Module):
 
             x = self.linear2(x)
             x = F.normalize(x,p=2,dim=1) * self.scaling_factor
+            x = F.dropout(x, p=0.5, training=self.training)
             x = self.propagate(x, edge_index)
             return x, x_
 

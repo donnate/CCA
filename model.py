@@ -59,6 +59,7 @@ class GCN(nn.Module):
 
         for i in range(self.n_layers - 1):
             x = F.relu(self.convs[i](x, edge_index))
+            x = F.dropout(x, p=0.5, training=self.training)
         x = self.convs[-1](x, edge_index)
 
         return x
