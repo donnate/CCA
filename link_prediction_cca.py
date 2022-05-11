@@ -43,7 +43,8 @@ parser.add_argument('--n_layers', type=int, default=2)
 parser.add_argument('--channels', type=int, default=128)
 parser.add_argument('--normalize', type=parse_boolean, default=True)
 parser.add_argument('--non_linear', type=parse_boolean, default=True)
-parser.add_argument('--add_negative_samples', type=parse_boolean, default=False)
+parser.add_argument('--add_negative_samples', type=parse_boolean, default=True)
+parser.add_argument('--patience', type=int, default=10)
 parser.add_argument('--scaling_factor', type=float, default=1.8)
 parser.add_argument('--lr', type=float, default=0.0005)
 parser.add_argument('--drop_rate_edge', type=float, default=0.2)
@@ -122,7 +123,7 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
             lr1 = args.lr
             wd1 = 0
             optimizer = torch.optim.Adam(model.parameters(), lr=lr1, weight_decay=wd1)
-            for epoch in range(25):
+            for epoch in range(200):
                 model.train()
                 optimizer.zero_grad()
 
@@ -175,10 +176,11 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
             loss_fn = F.binary_cross_entropy
             output_activation = nn.Sigmoid()
 
+            last_loss = 1e10
+            patience = args.patience
+            triggertimes = 0
             best_val_roc = 0
-            eval_roc = 0
             best_val_ap = 0
-            eval_ap = 0
 
             for epoch in range(args.epochs):
                 logreg.train()
@@ -225,17 +227,22 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
 
                     if val_roc >= best_val_roc:
                         best_val_roc = val_roc
-                        if test_roc > eval_roc:
-                            eval_roc = test_roc
 
-                    if val_ap >= best_val_ap:
-                        best_val_ap = val_ap
-                        if test_ap > eval_ap:
-                            eval_ap = test_ap
+                    current_loss = val_roc
+                    if current_loss >= last_loss:
+                        trigger_times += 1
+                        #print('Trigger Times:', trigger_times)
+                        if trigger_times >= patience:
+                            #print('Early stopping!\nStart to test process.')
+                            break
+                    else:
+                        #print('trigger times: 0')
+                        trigger_times = 0
+                    last_loss = current_loss
 
                 print('Epoch:{}, val_ap:{:.4f}, val_roc:{:4f}, test_ap:{:4f}, test_roc:{:4f}'.format(epoch, val_ap, val_roc, test_ap, test_roc))
-                print('Linear evaluation AP:{:.4f}'.format(eval_ap))
-                print('Linear evaluation ROC:{:.4f}'.format(eval_roc))
+                print('Linear evaluation AP:{:.4f}'.format(val_ap))
+                print('Linear evaluation ROC:{:.4f}'.format(val_roc))
                 results += [[exp, 'CCA', args.dataset, True, True, args.lr, args.channels,
                                       training_rate, val_ratio, test_ratio, lambd, test_roc, test_ap, epoch, args.drop_rate_edge, args.drop_rate_feat]]
                 res1 = pd.DataFrame(results, columns=['exp', 'model', 'dataset', 'non-linearity', 'normalize',  'lr', 'channels',
