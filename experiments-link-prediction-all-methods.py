@@ -42,10 +42,9 @@ parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--result_file', type=str, default="/results/link_prediction_all_")
 args = parser.parse_args()
 
-file_path = os.getcwd() + args.result_file + args.dataset +'_normalize' +\
+file_path = os.getcwd() + "/results/link_prediction_all_" + str(args.result_file) + '_' + args.dataset +'_normalize' +\
  str(args.normalize) + '_nonlinear' + str(args.non_linear) + '_lr' + str(args.lr) + '.csv'
-
-
+print(file_path)
 
 if args.dataset in ['Cora', 'CiteSeer', 'PubMed']:
     dataset = Planetoid(root='Planetoid', name=args.dataset, transform=NormalizeFeatures())
