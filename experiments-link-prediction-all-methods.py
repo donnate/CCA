@@ -33,15 +33,15 @@ def parse_boolean(value):
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='Cora')
 parser.add_argument('--epochs', type=int, default=500)
-parser.add_argument('--channels', type=int, default=128)
 parser.add_argument('--patience', type=int, default=30)
 parser.add_argument('--normalize', type=parse_boolean, default=True)
 parser.add_argument('--non_linear', type=parse_boolean, default=True)
 parser.add_argument('--lr', type=float, default=0.01)
-parser.add_argument('--result_file', type=str, default="/results/results_link_prediction_all.csv")
+parser.add_argument('--result_file', type=str, default="/results/link_prediction_all_")
 args = parser.parse_args()
 
-file_path = os.getcwd() + args.result_file
+file_path = os.getcwd() + args.result_file + args.datasets +'_normalize' +\
+ str(args.normalize) + '_nonlinear' + str(args.non_linear) + '_lr' + str(args.lr) + '.csv'
 
 
 
@@ -252,7 +252,7 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                     #print(embeds.shape, adj_train.shape)
                     weight_tensor, norm = compute_loss_para(adj_train)
                     logreg = LogReg(embeds.shape[1], adj_train.shape[1])
-                    lr2 = 1e-3
+                    lr2 = 1e-2
                     wd2 = 1e-4
                     opt = torch.optim.Adam(logreg.parameters(), lr=lr2, weight_decay=wd2)
 
