@@ -20,6 +20,7 @@ def random_aug(data, feat_drop_rate, edge_mask_rate):
     nsrc = src[edge_mask]
     ndst = dst[edge_mask]
     new_data.edge_index = torch.vstack([nsrc, ndst])
+    new_data.x = feat
 
     return new_data
 
