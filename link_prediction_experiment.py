@@ -14,26 +14,17 @@ import torch_geometric.transforms as T
 from VGNAE import *
 from GeneralizedVGAE import *
 
-def parse_boolean(value):
-    value = value.lower()
-    if value in ["true", "yes", "y", "1", "t"]:
-        return True
-    elif value in ["false", "no", "n", "0", "f"]:
-        return False
-    return False
-
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, default='VGNAE')
 parser.add_argument('--dataset', type=str, default='Cora')
-parser.add_argument('--epochs', type=int, default=500)
-parser.add_argument('--n_experiments', type=int, default=1)
+parser.add_argument('--epochs', type=int, default=300)
+parser.add_argument('--n_experiments', type=int, default=10)
 parser.add_argument('--channels', type=int, default=128)
-parser.add_argument('--patience', type=int, default=5)
-parser.add_argument('--normalize', type=parse_boolean, default=True)
-parser.add_argument('--non_linear', type=parse_boolean, default=True)
+parser.add_argument('--patience', type=int, default=10)
+parser.add_argument('--normalize', type=bool, default=True)
+parser.add_argument('--non_linear', type=bool, default=True)
 parser.add_argument('--scaling_factor', type=float, default=1.8)
-parser.add_argument('--lr', type=float, default=0.01)
+parser.add_argument('--lr', type=float, default=0.0005)
 parser.add_argument('--result_file', type=str, default="/results/results_link_prediction_")
 args = parser.parse_args()
 
@@ -62,7 +53,7 @@ def train(model, optimizer, train_data, model_type):
     optimizer.zero_grad()
     z  = model.encode(train_data.x, train_data.pos_edge_label_index)
     loss = model.recon_loss(z, train_data.pos_edge_label_index) # + model.recon_loss(z, train_data.neg_edge_label_index)
-    if model_type in ['VGNAE', 'Gen-VGNAE']:
+    if model_type in ['VNGAE', 'Gen-VNGAE']:
         loss = loss + (1 / data.num_nodes) * model.kl_loss()
     loss.backward()
     optimizer.step()
@@ -82,22 +73,21 @@ def validation(model, train_data, val_data):
 
 results =[]
 for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
-#for training_rate in [0.2]:
     val_ratio = (1.0 - training_rate) / 3
     test_ratio = (1.0 - training_rate) / 3 * 2
     for exp in range(args.n_experiments):
-        print(exp)
         transform = RandomLinkSplit(num_val=val_ratio, num_test=test_ratio,
                                     is_undirected=True, split_labels=True)
-        if args.model in ['Gen-VGNAE', 'Gen-GNAE']:
+        if args.model in ['Gen-VNGAE', 'Gen-NGAE']:
             alphas = alpha in np.arange(0,1.1, 0.1)
         else:
             alphas = [1.0, 1.5, 1.8, 2.0, 5.0, 10.]
+
         for alpha in alphas:
             train_data, val_data, test_data = transform(data)
             if args.model == 'Gen-GNAE':
-                model = GAE(GCNEncoder(data.x.size()[1], out_channels, norm=True, alpha=alpha,
-                beta=1.0, non_linearity=args.non_linear))
+                model = GAE(GCNEncoder(data.x.size()[1], out_channels, norm=True, alpha=alpha, beta=1.0,
+                                      non_linearity=args.non_linear))
             elif args.model == 'Gen-VGNAE':
                 model = VGAE(VariationalGCNEncoder(data.x.size()[1], out_channels, norm=True, alpha=alpha,
                                          beta=1.0, non_linearity=args.non_linear))
@@ -107,10 +97,10 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
             else:
                 model = VGAE(Encoder(data.x.size()[1], out_channels, train_data.pos_edge_label_index,
                         model='VGNAE', scaling_factor=alpha)).to(dev)
-            # move to GPU (if available)
+            # move to GPU (if avaiable)
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             model = model.to(device)
-            optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+            optimizer = torch.optim.Adam(model.parameters(), lr = args.lr)
 
             last_loss = 1e10
             patience = args.patience

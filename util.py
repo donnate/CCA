@@ -1,15 +1,16 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[5]:
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import math
 import scipy.sparse as sp
+from typing import Optional
+
+
+from torch_geometric.utils.num_nodes import maybe_num_nodes
+
+
+
 
 
 # In[21]:
@@ -18,22 +19,22 @@ import scipy.sparse as sp
 def generate_onehot(x, y_dim):
     """
     Generates a `torch.Tensor` of size batch_size x n_labels of the given label.
-    Example: enumerate_discrete(x, 3) & x.size(0) = 2 
+    Example: enumerate_discrete(x, 3) & x.size(0) = 2
     #=> torch.Tensor([[1,0,0],
                       [0,1,0],
                       [0,0,1],
                       [1,0,0],
                       [0,1,0],
                       [0,0,1]])
-                      
+
     :param x: tensor with batch size to mimic
     :param y_dim: number of total labels
     :return variable
     """
     def batch(batch_size, label):
         labels = (torch.ones(batch_size, 1) * label).type(torch.LongTensor)
-        y = torch.zeros((batch_size, y_dim)) 
-        y.scatter_(1, labels, 1) 
+        y = torch.zeros((batch_size, y_dim))
+        y.scatter_(1, labels, 1)
         return y.type(torch.LongTensor)
 
     batch_size = x.size(0)
@@ -76,6 +77,23 @@ def log_sum_exp(tensor, dim=-1, sum_op=torch.sum):
     """
     max, _ = torch.max(tensor, dim=dim, keepdim=True)
     return torch.log(sum_op(torch.exp(tensor - max), dim=dim, keepdim=True) + 1e-8) + max
+
+
+def degree(index, num_nodes: Optional[int] = None,
+        dtype: Optional[torch.dtype] = None):
+    r"""Computes the (unweighted) degree of a given one-dimensional index tensor.
+    Args:
+    index (LongTensor): Index tensor.
+    num_nodes (int, optional): The number of nodes, *i.e.*
+    :obj:`max_val + 1` of :attr:`index`. (default: :obj:`None`)
+    dtype (:obj:`torch.dtype`, optional): The desired data type of the
+    returned tensor.\n\n    :rtype: :class:`Tensor`\n    """
+    if index.shape[0] != 1: # modify input
+        index = index[0]
+    N = maybe_num_nodes(index, num_nodes)
+    out = torch.zeros((N, ), dtype=dtype, device=index.device)
+    one = torch.ones((index.size(0), ), dtype=out.dtype, device=out.device)
+    return out.scatter_add_(0, index, one)
 
 
 def mask_test_edges_dgl(graph, adj):
