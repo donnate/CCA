@@ -1,18 +1,8 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import math
-
-
-# In[2]:
-
 
 ### Distribution
 
@@ -52,4 +42,3 @@ def log_standard_categorical(p):
     cross_entropy = -torch.sum(p * torch.log(prior + 1e-8), dim=1)
 
     return cross_entropy
-

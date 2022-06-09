@@ -10,4 +10,4 @@
 # Load the default version of GNU Parallel
 module load python/anaconda-2021.05
 
-python3 experiments-link-prediction-all-methods.py --epochs 300 --patience 30
+python3 experiments-link-prediction-all-methods.py --epochs 300 --patience 30 --dataset Cora

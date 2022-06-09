@@ -11,11 +11,6 @@ from torch_geometric.utils.num_nodes import maybe_num_nodes
 
 
 
-
-
-# In[21]:
-
-
 def generate_onehot(x, y_dim):
     """
     Generates a `torch.Tensor` of size batch_size x n_labels of the given label.
@@ -46,9 +41,6 @@ def generate_onehot(x, y_dim):
     return generated.float()
 
 
-# In[7]:
-
-
 def onehot(k):
     """
     Converts a number to its one-hot or 1-of-k representation
@@ -62,9 +54,6 @@ def onehot(k):
             y[label] = 1
         return y
     return encode
-
-
-# In[8]:
 
 
 def log_sum_exp(tensor, dim=-1, sum_op=torch.sum):

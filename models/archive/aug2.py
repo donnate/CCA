@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
 import torch as th
 import numpy as np
 import dgl
@@ -11,9 +5,7 @@ import math
 
 
 def gae_aug(rec, graph, x, feat_drop_rate, mask_prob):
-    
-    ### Edge removing ###
-    # initial setting
+
     E = graph.number_of_edges()
     n_node = graph.number_of_nodes()
     n = round_up_to_even(E*mask_prob)
@@ -45,7 +37,7 @@ def gae_aug(rec, graph, x, feat_drop_rate, mask_prob):
     nsrc2 = src[edge_mask2]
     ndst2 = dst[edge_mask2]
     ng2.add_edges(nsrc2, ndst2)
-    
+
     ### Edge adding ###
     # add self loop
     graph_temp = graph.add_self_loop()

@@ -5,7 +5,7 @@ import numpy as np
 import math
 from torch.nn import init
 from torch_geometric.nn import GCNConv
-from layer2 import GaussianSample
+from models.stochastic_layers import GaussianSample
 from distribution import log_gaussian
 from distribution import log_standard_gaussian
 from distribution import log_standard_categorical

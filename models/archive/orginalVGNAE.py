@@ -16,6 +16,7 @@ from torch_geometric.utils import train_test_split_edges
 from torch_geometric.nn import GAE, VGAE, APPNP
 import torch.nn.functional as F
 
+
 class Encoder(torch.nn.Module):
     def __init__(self, in_channels, out_channels, edge_index, model='GNAE', scaling_factor=1.8):
         super(Encoder, self).__init__()
