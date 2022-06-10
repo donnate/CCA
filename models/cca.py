@@ -15,7 +15,6 @@ class CCA_SSG(nn.Module):
     """
     def __init__(self, in_dim, hid_dims, out_dim, use_mlp=False, normalize=True):
         super().__init__()
-        print(in_dim, hid_dims, out_dim)
         if not use_mlp:
             self.backbone = GCN(in_dim, hid_dims, out_dim, normalize)
         else:

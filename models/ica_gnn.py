@@ -1,140 +1,147 @@
-import torch
+import copy
 import torch
 from torch import distributions as dist
 from torch import nn
 from torch.nn import functional as F
 from torch_geometric.nn import APPNP
-
+import numpy as np
+from models.baseline_models import GCN, MLP, LogReg
 
 def weights_init(m):
     if isinstance(m, nn.Linear):
         nn.init.xavier_uniform_(m.weight.data)
 
+def random_permutation(data):
+    new_data = copy.deepcopy(data)
+    bot = new_data.edge_index[1,:]
+    new_bot = bot[torch.randperm(len(bot))]
+    new_data.edge_index[1,:] = new_bot
+    return new_data
 
-class GCN(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dim, n_layers,
-    activation='none', slope=.1, device='cpu'):
-        super().__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.n_layers = n_layers
-        self.device = device
-        self.propagate = APPNP(K=1, alpha=0)
-        if isinstance(hidden_dim, Number):
-            self.hidden_dim = [hidden_dim] * (self.n_layers - 1)
-        elif isinstance(hidden_dim, list):
-            self.hidden_dim = hidden_dim
-        else:
-            raise ValueError('Wrong argument type for hidden_dim: {}'.format(hidden_dim))
-
-        if isinstance(activation, str):
-            self.activation = [activation] * (self.n_layers - 1)
-        elif isinstance(activation, list):
-            self.hidden_dim = activation
-        else:
-            raise ValueError('Wrong argument type for activation: {}'.format(activation))
-
-        self._act_f = []
-        for act in self.activation:
-            if act == 'lrelu':
-                self._act_f.append(lambda x: F.leaky_relu(x, negative_slope=slope))
-            elif act == 'xtanh':
-                self._act_f.append(lambda x: self.xtanh(x, alpha=slope))
-            elif act == 'sigmoid':
-                self._act_f.append(F.sigmoid)
-            elif act == 'none':
-                self._act_f.append(lambda x: x)
-            else:
-                ValueError('Incorrect activation: {}'.format(act))
-
-        if self.n_layers == 1:
-            _fc_list = [nn.Linear(self.input_dim, self.output_dim)]
-        else:
-            _fc_list = [nn.Linear(self.input_dim, self.hidden_dim[0])]
-            for i in range(1, self.n_layers - 1):
-                _fc_list.append(nn.Linear(self.hidden_dim[i - 1], self.hidden_dim[i]))
-            _fc_list.append(nn.Linear(self.hidden_dim[self.n_layers - 2], self.output_dim))
-        self.fc = nn.ModuleList(_fc_list)
-        self.to(self.device)
-
-    @staticmethod
-    def xtanh(x, alpha=.1):
-        """tanh function plus an additional linear term"""
-        return x.tanh() + alpha * x
-
-    def forward(self, x, edge_index):
-        h = x
-        for c in range(self.n_layers):
-            if c == self.n_layers - 1:
-                h = self.fc[c](h)
-            else:
-                print(c, h.shape)
-                h = self.fc[c](h)
-                h = F.normalize(h, p=2, dim=1)
-                h = F.dropout(h, p=0.5, training=self.training)
-                h = self.propagate(h, edge_index)
-                h = self._act_f[c](h)
-        return h
-
-
-class MLP(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dim, n_layers,
-    activation='none', slope=.1, device='cpu'):
-        super().__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.n_layers = n_layers
-        self.device = device
-        if isinstance(hidden_dim, Number):
-            self.hidden_dim = [hidden_dim] * (self.n_layers - 1)
-        elif isinstance(hidden_dim, list):
-            self.hidden_dim = hidden_dim
-        else:
-            raise ValueError('Wrong argument type for hidden_dim: {}'.format(hidden_dim))
-
-        if isinstance(activation, str):
-            self.activation = [activation] * (self.n_layers - 1)
-        elif isinstance(activation, list):
-            self.hidden_dim = activation
-        else:
-            raise ValueError('Wrong argument type for activation: {}'.format(activation))
-
-        self._act_f = []
-        for act in self.activation:
-            if act == 'lrelu':
-                self._act_f.append(lambda x: F.leaky_relu(x, negative_slope=slope))
-            elif act == 'xtanh':
-                self._act_f.append(lambda x: self.xtanh(x, alpha=slope))
-            elif act == 'sigmoid':
-                self._act_f.append(F.sigmoid)
-            elif act == 'none':
-                self._act_f.append(lambda x: x)
-            else:
-                ValueError('Incorrect activation: {}'.format(act))
-
-        if self.n_layers == 1:
-            _fc_list = [nn.Linear(self.input_dim, self.output_dim)]
-        else:
-            _fc_list = [nn.Linear(self.input_dim, self.hidden_dim[0])]
-            for i in range(1, self.n_layers - 1):
-                _fc_list.append(nn.Linear(self.hidden_dim[i - 1], self.hidden_dim[i]))
-            _fc_list.append(nn.Linear(self.hidden_dim[self.n_layers - 2], self.output_dim))
-        self.fc = nn.ModuleList(_fc_list)
-        self.to(self.device)
-
-    @staticmethod
-    def xtanh(x, alpha=.1):
-        """tanh function plus an additional linear term"""
-        return x.tanh() + alpha * x
-
-    def forward(self, x):
-        h = x
-        for c in range(self.n_layers):
-            if c == self.n_layers - 1:
-                h = self.fc[c](h)
-            else:
-                h = self._act_f[c](self.fc[c](h))
-        return h
+# class GCN(nn.Module):
+#     def __init__(self, input_dim, output_dim, hidden_dim, n_layers,
+#     activation='none', slope=.1, device='cpu'):
+#         super().__init__()
+#         self.input_dim = input_dim
+#         self.output_dim = output_dim
+#         self.n_layers = n_layers
+#         self.device = device
+#         self.propagate = APPNP(K=1, alpha=0)
+#         if isinstance(hidden_dim, Number):
+#             self.hidden_dim = [hidden_dim] * (self.n_layers - 1)
+#         elif isinstance(hidden_dim, list):
+#             self.hidden_dim = hidden_dim
+#         else:
+#             raise ValueError('Wrong argument type for hidden_dim: {}'.format(hidden_dim))
+#
+#         if isinstance(activation, str):
+#             self.activation = [activation] * (self.n_layers - 1)
+#         elif isinstance(activation, list):
+#             self.hidden_dim = activation
+#         else:
+#             raise ValueError('Wrong argument type for activation: {}'.format(activation))
+#
+#         self._act_f = []
+#         for act in self.activation:
+#             if act == 'lrelu':
+#                 self._act_f.append(lambda x: F.leaky_relu(x, negative_slope=slope))
+#             elif act == 'xtanh':
+#                 self._act_f.append(lambda x: self.xtanh(x, alpha=slope))
+#             elif act == 'sigmoid':
+#                 self._act_f.append(F.sigmoid)
+#             elif act == 'none':
+#                 self._act_f.append(lambda x: x)
+#             else:
+#                 ValueError('Incorrect activation: {}'.format(act))
+#
+#         if self.n_layers == 1:
+#             _fc_list = [nn.Linear(self.input_dim, self.output_dim)]
+#         else:
+#             _fc_list = [nn.Linear(self.input_dim, self.hidden_dim[0])]
+#             for i in range(1, self.n_layers - 1):
+#                 _fc_list.append(nn.Linear(self.hidden_dim[i - 1], self.hidden_dim[i]))
+#             _fc_list.append(nn.Linear(self.hidden_dim[self.n_layers - 2], self.output_dim))
+#         self.fc = nn.ModuleList(_fc_list)
+#         self.to(self.device)
+#
+#     @staticmethod
+#     def xtanh(x, alpha=.1):
+#         """tanh function plus an additional linear term"""
+#         return x.tanh() + alpha * x
+#
+#     def forward(self, x, edge_index):
+#         h = x
+#         for c in range(self.n_layers):
+#             if c == self.n_layers - 1:
+#                 h = self.fc[c](h)
+#             else:
+#                 print(c, h.shape)
+#                 h = self.fc[c](h)
+#                 h = F.normalize(h, p=2, dim=1)
+#                 h = F.dropout(h, p=0.5, training=self.training)
+#                 h = self.propagate(h, edge_index)
+#                 h = self._act_f[c](h)
+#         return h
+#
+#
+# class MLP(nn.Module):
+#     def __init__(self, input_dim, output_dim, hidden_dim, n_layers,
+#     activation='none', slope=.1, device='cpu'):
+#         super().__init__()
+#         self.input_dim = input_dim
+#         self.output_dim = output_dim
+#         self.n_layers = n_layers
+#         self.device = device
+#         if isinstance(hidden_dim, Number):
+#             self.hidden_dim = [hidden_dim] * (self.n_layers - 1)
+#         elif isinstance(hidden_dim, list):
+#             self.hidden_dim = hidden_dim
+#         else:
+#             raise ValueError('Wrong argument type for hidden_dim: {}'.format(hidden_dim))
+#
+#         if isinstance(activation, str):
+#             self.activation = [activation] * (self.n_layers - 1)
+#         elif isinstance(activation, list):
+#             self.hidden_dim = activation
+#         else:
+#             raise ValueError('Wrong argument type for activation: {}'.format(activation))
+#
+#         self._act_f = []
+#         for act in self.activation:
+#             if act == 'lrelu':
+#                 self._act_f.append(lambda x: F.leaky_relu(x, negative_slope=slope))
+#             elif act == 'xtanh':
+#                 self._act_f.append(lambda x: self.xtanh(x, alpha=slope))
+#             elif act == 'sigmoid':
+#                 self._act_f.append(F.sigmoid)
+#             elif act == 'none':
+#                 self._act_f.append(lambda x: x)
+#             else:
+#                 ValueError('Incorrect activation: {}'.format(act))
+#
+#         if self.n_layers == 1:
+#             _fc_list = [nn.Linear(self.input_dim, self.output_dim)]
+#         else:
+#             _fc_list = [nn.Linear(self.input_dim, self.hidden_dim[0])]
+#             for i in range(1, self.n_layers - 1):
+#                 _fc_list.append(nn.Linear(self.hidden_dim[i - 1], self.hidden_dim[i]))
+#             _fc_list.append(nn.Linear(self.hidden_dim[self.n_layers - 2], self.output_dim))
+#         self.fc = nn.ModuleList(_fc_list)
+#         self.to(self.device)
+#
+#     @staticmethod
+#     def xtanh(x, alpha=.1):
+#         """tanh function plus an additional linear term"""
+#         return x.tanh() + alpha * x
+#
+#     def forward(self, x):
+#         h = x
+#         for c in range(self.n_layers):
+#             if c == self.n_layers - 1:
+#                 h = self.fc[c](h)
+#             else:
+#                 h = self._act_f[c](self.fc[c](h))
+#         return h
 
 
 class Dist:
@@ -249,10 +256,13 @@ class Bernoulli(Dist):
 class GraphICA(nn.Module):
     def __init__(self, in_dim, hid_dims, out_dim, use_mlp = False,
                  use_graph=True,
-                regularize=True):
+                 regularize=False,
+                 activation = 'relu'):
         super().__init__()
-        self.backbone_gcn = GCN(in_dim, hid_dims, out_dim)
-        self.backbone_mlp = MLP(in_dim, in_dim, in_dim)
+        self.backbone_gcn = GCN(in_dim, hid_dims, out_dim, n_layers=2,
+                                normalize=True, activation=activation)
+        self.backbone_mlp = MLP(in_dim, in_dim, in_dim,n_layers=2,
+                                activation=activation)
         self.regularize = regularize
         self.use_mlp = use_mlp
         self.use_graph= use_graph
@@ -290,7 +300,7 @@ class GraphICA(nn.Module):
 
 
 class iVGAE(nn.Module):
-    def __init__(self, latent_dim, data_dim, aux_dim, prior=None, decoder=None, encoder=None,
+    def __init__(self, data_dim, latent_dim, aux_dim, prior=None, decoder=None, encoder=None,
                  n_layers=3, hidden_dim=50, activation='lrelu', slope=.1, device='cpu', anneal=False):
         super().__init__()
 

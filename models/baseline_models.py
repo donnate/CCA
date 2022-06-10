@@ -1,7 +1,8 @@
+from numbers import Number
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, APPNP
 
 from models.aggregation import GenGCNConv
 
@@ -49,7 +50,7 @@ class GCN(nn.Module): # in_dim, hid_dims, out_dim, normalize=True
             if act == 'lrelu':
                 self._act_f.append(lambda x: F.leaky_relu(x, negative_slope=slope))
             elif act == 'relu':
-                self._act_f.append(lambda x: torch.nn.ReLU(x))
+                self._act_f.append(lambda x: torch.nn.ReLU()(x))
             elif act == 'xtanh':
                 self._act_f.append(lambda x: self.xtanh(x, alpha=slope))
             elif act == 'sigmoid':
@@ -80,9 +81,8 @@ class GCN(nn.Module): # in_dim, hid_dims, out_dim, normalize=True
             if c == self.n_layers - 1:
                 h = self.fc[c](h)
             else:
-                print(c, h.shape)
                 h = self.fc[c](h)
-                if self.normalize: x = F.normalize(x, p=2, dim=1)
+                if self.normalize: h = F.normalize(h, p=2, dim=1)
                 h = F.dropout(h, p=0.5, training=self.training)
                 h = self.propagate(h, edge_index)
                 h = self._act_f[c](h)
@@ -108,7 +108,7 @@ class MLP(nn.Module):
         if isinstance(activation, str):
             self.activation = [activation] * (self.n_layers - 1)
         elif isinstance(activation, list):
-            self.hidden_dim = activation
+            self.activation = activation
         else:
             raise ValueError('Wrong argument type for activation: {}'.format(activation))
 
@@ -117,7 +117,7 @@ class MLP(nn.Module):
             if act == 'lrelu':
                 self._act_f.append(lambda x: F.leaky_relu(x, negative_slope=slope))
             elif act == 'relu':
-                self._act_f.append(lambda x: torch.nn.ReLU(x))
+                self._act_f.append(lambda x: torch.nn.ReLU()(x))
             elif act == 'xtanh':
                 self._act_f.append(lambda x: self.xtanh(x, alpha=slope))
             elif act == 'sigmoid':
@@ -149,8 +149,7 @@ class MLP(nn.Module):
                 h = self.fc[c](h)
             else:
                 h = self._act_f[c](self.fc[c](h))
-                if self.use_bn:
-                    x = self.bn(x)
+                if self.use_bn: h= self.bn(h)
         return h
 
 # class MLP(nn.Module):
