@@ -300,7 +300,7 @@ class GraphICA(nn.Module):
 
 
 class iVGAE(nn.Module):
-    def __init__(self, data_dim, latent_dim, aux_dim, prior=None, decoder=None, encoder=None,
+    def __init__(self, latent_dim, data_dim, aux_dim, prior=None, decoder=None, encoder=None,
                  n_layers=3, hidden_dim=50, activation='lrelu', slope=.1, device='cpu', anneal=False):
         super().__init__()
 
@@ -330,17 +330,17 @@ class iVGAE(nn.Module):
 
         # prior_params
         self.prior_mean = torch.zeros(1).to(device)
-        self.logl = MLP(aux_dim, latent_dim, hidden_dim, n_layers,
+        self.logl = MLP(aux_dim, hidden_dim, latent_dim, n_layers,
                         activation=activation, slope=slope, device=device)
-        # decoder params
-        self.f = MLP(latent_dim, data_dim, hidden_dim, n_layers,
+        # decoder params  input_dim, hidden_dim, output_dim, n_layers=2,
+        self.f = MLP(latent_dim, hidden_dim, data_dim, n_layers,
                      activation=activation, slope=slope, device=device)
         self.decoder_var = .01 * torch.ones(1).to(device)
         # encoder params
-        self.g = GCN(data_dim + aux_dim, latent_dim, hidden_dim, n_layers,
+        self.g = GCN(data_dim + aux_dim, hidden_dim, latent_dim, n_layers,
                      activation=activation, slope=slope,
                      device=device)
-        self.logv = GCN(data_dim + aux_dim, latent_dim, hidden_dim, n_layers,
+        self.logv = GCN(data_dim + aux_dim,  hidden_dim, latent_dim, n_layers,
                         activation=activation, slope=slope,
                         device=device)
 

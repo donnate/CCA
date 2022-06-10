@@ -251,8 +251,6 @@ class VariationalGraphAutoencoder(nn.Module):
 
 
 
-# In[ ]:
-
 
 class DeepGraphGenerativeModel(VariationalGraphAutoencoder):
     def __init__(self, dims):

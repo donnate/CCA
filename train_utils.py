@@ -49,7 +49,7 @@ def train(model, optimizer, train_data, model_name, y_randoms):
 
 def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
                     lr=0.01, wd=1e-4,
-                    patience = 100, max_epochs=3):
+                    patience = 30, max_epochs=3000):
     logreg = LogReg(embeds.shape[1], out_dim)
     opt = torch.optim.Adam(logreg.parameters(), lr=lr, weight_decay=wd)
     output_activation = torch.nn.Sigmoid()
@@ -110,7 +110,7 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
 
 
 def node_prediction(embeds, out_dim, y, train_mask, test_mask, lr=0.01, wd=1e-4,
-                    patience = 100, max_epochs=3):
+                    patience = 30, max_epochs=3000):
     #input_dim, hidden_dim, output_dim, n_layers=2, activation='relu', slope=.1, device='cpu', use_bn=False
     node_classifier = MLP(embeds.shape[1], embeds.shape[1], out_dim,  n_layers=2)
     train_labels = y[train_mask]

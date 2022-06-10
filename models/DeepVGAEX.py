@@ -15,11 +15,9 @@ class Decoder_Y(nn.Module):
 
         super().__init__()
         neurons = [z_dim, *h_dims]
-        print(h_dims)
         linear_layers = [nn.Linear(neurons[i-1], neurons[i]) for i in range(1, len(neurons))]
         self.hidden = nn.ModuleList(linear_layers)
         self.dropout = dropout
-        print(h_dims[-1], x_dim)
         self.reconstruction = nn.Linear(h_dims[-1], x_dim)
         self.x_dim = x_dim
         #self.std = nn.Linear(h_dims[-1], x_dim)
