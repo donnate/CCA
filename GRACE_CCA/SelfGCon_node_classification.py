@@ -1,4 +1,5 @@
-import os
+import sys, os
+sys.path.append('../../cca')
 import os.path as osp
 import argparse
 import pandas as pd
@@ -13,9 +14,11 @@ import torch_geometric.transforms as T
 from torch_geometric.utils import to_dense_adj
 from torch_geometric.utils import add_self_loops
 
-from model import *
+from models.baseline_models import *
 from aug import *
-# from aug_gae import gae_aug # delete + add
+from models.cca import CCA_SSG
+from train_utils import *
+from similarities import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, default='GRACE')
@@ -34,54 +37,37 @@ parser.add_argument('--drop_rate_feat', type=float, default=0.3)
 parser.add_argument('--result_file', type=str, default="/results/SelfGCon_node_classification")
 args = parser.parse_args()
 
-def sim(z1: torch.Tensor, z2: torch.Tensor):
-    z1 = F.normalize(z1)
-    z2 = F.normalize(z2)
-    return torch.mm(z1, z2.t())
-
-def semi_loss(z1: torch.Tensor, z2: torch.Tensor):
-    f = lambda x: torch.exp(x / args.tau) 
-    refl_sim = f(sim(z1, z1))
-    between_sim = f(sim(z1, z2))
-
-    return -torch.log(
-        between_sim.diag()
-        / (between_sim.sum(1) + refl_sim.sum(1) - refl_sim.diag()))
-#   
-
-def cl_loss_fn(z1: torch.Tensor, z2: torch.Tensor, mean: bool = True):
-    l1 = semi_loss(z1, z2)
-    l2 = semi_loss(z2, z1)
-    ret = (l1 + l2) * 0.5
-    ret = ret.mean() if mean else ret.sum()
-
-    return ret
-
-file_path = os.getcwd() + args.result_file
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 if args.split == "PublicSplit":
     transform = T.Compose([T.NormalizeFeatures(),T.ToDevice(device)])
 if args.split == "RandomSplit":
-    transform = T.Compose([T.NormalizeFeatures(),T.ToDevice(device), T.RandomNodeSplit(split="random", 
+    transform = T.Compose([T.NormalizeFeatures(),T.ToDevice(device), T.RandomNodeSplit(split="random",
                                                                                         num_train_per_class = 20,
                                                                                         num_val = 160,
-                                                                                        num_test = 1280 )])
+file_path = os.getcwd() + args.result_file
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+path =  os.getcwd() + '/data'
+
+if args.split == "PublicSplit":
+    transform = T.Compose([T.NormalizeFeatures(),T.ToDevice(device)])
+    num_per_class  = 20
+if args.split == "SupervisedSplit":
+    transform = T.Compose([T.NormalizeFeatures(),T.ToDevice(device), T.RandomNodeSplit()])
 
 if args.dataset in ['Cora', 'CiteSeer', 'PubMed']:
-    dataset = Planetoid(root='Planetoid', name=args.dataset, transform=transform)
+    dataset = Planetoid(root='data/Planetoid', name=args.dataset, transform=transform)
     data = dataset[0]
-if args.dataset in ['cs', 'physics']:
-    dataset = Coauthor(args.dataset, 'public', transform=transform)
+if args.dataset in ['CS', 'physics']:
+    dataset = Coauthor(path, args.dataset, transform=transform)
     data = dataset[0]
-if args.dataset in ['Computers', 'Photo']:
-    dataset = Amazon("/Users/ilgeehong/Desktop/GRACE_CCA/", args.dataset, transform=transform)
+if args.dataset in ['computers', 'photo']:
+    dataset = Amazon(path, args.dataset, transform=transform)
     data = dataset[0]
 
 #pdb.set_trace()
-train_idx = data.train_mask 
-val_idx = data.val_mask 
-test_idx = data.test_mask  
+train_idx = data.train_mask
+val_idx = data.val_mask
+test_idx = data.test_mask
 
 in_dim = data.num_features
 hid_dim = args.channels
@@ -89,14 +75,16 @@ out_dim = args.channels
 n_layers = args.n_layers
 
 dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-num_class = int(data.y.max().item()) + 1 
+num_class = int(data.y.max().item()) + 1
 N = data.num_nodes
 
 ##### Train the GRACE model #####
 print("=== train GRACE model ===")
 results =[]
-for exp in range(args.n_experiments): 
-    model = CCA_SSG(in_dim, hid_dim, out_dim, n_layers, use_mlp=False)
+for exp in range(args.n_experiments):
+    hid_dim = [args.channels] * args.n_layers
+    model = CCA_SSG(data.num_features, hid_dim,
+                    args.channels, use_mlp=False)
     lr1 = args.lr1
     wd1 = 0
     optimizer = torch.optim.Adam(model.parameters(), lr=lr1, weight_decay=wd1)
@@ -111,9 +99,9 @@ for exp in range(args.n_experiments):
         new_data2 = random_aug(data, dfr, der)
 
         z1, z2 = model(new_data1, new_data2)
-        
-        loss = cl_loss_fn(z1, z2)
-    
+
+        loss = cl_loss_fn(z1, z2, indices=None, tau=args.tau, type='selfG')
+
         loss.backward()
         optimizer.step()
 
@@ -136,7 +124,7 @@ for exp in range(args.n_experiments):
 
     train_feat = feat[train_idx]
     val_feat = feat[val_idx]
-    test_feat = feat[test_idx] 
+    test_feat = feat[test_idx]
 
     ''' Linear Evaluation '''
     logreg = LogReg(train_embs.shape[1], num_class)
@@ -180,4 +168,3 @@ for exp in range(args.n_experiments):
     results += [['GRACE', args.dataset, args.epochs, args.n_layers, args.tau, args.lr1, args.lr2, args.wd2, args.channels, args.drop_rate_edge, args.drop_rate_feat, eval_acc]]
     res1 = pd.DataFrame(results, columns=['model', 'dataset', 'epochs', 'layers', 'tau', 'lr1', 'lr2', 'wd2', 'channels', 'drop_edge_rate', 'drop_feat_rate', 'accuracy'])
     res1.to_csv(file_path + "_" + args.dataset +  ".csv", index=False)
-
