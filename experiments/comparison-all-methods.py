@@ -101,7 +101,6 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
         #for alpha in [alphas[1]]:
         for alpha in alphas:
             for out_channels in [32, 64, 128, 256, 512]:
-            #for out_channels in [32]:
 
                 if model_name == 'VGNAE':
                     model = DeepVGAE(data.x.size()[1], out_channels * 2, out_channels,
@@ -126,7 +125,6 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
                 last_loss = 1e10
-                patience = args.patience
                 triggertimes = 0
 
                 for epoch in range(1, args.epochs):
@@ -147,11 +145,11 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                                         train_data.pos_edge_label_index,
                                         val_data.pos_edge_label_index,
                                         val_data.neg_edge_label_index)
-                    current_loss = out[1]
+                    current_loss = np.mean(out)
                     if current_loss >= last_loss:
                         trigger_times += 1
                         #print('Trigger Times:', trigger_times)
-                        if trigger_times >= patience:
+                        if trigger_times >= args.patience:
                             #print('Early stopping!\nStart to test process.')
                             break
                     else:
@@ -159,7 +157,7 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                         trigger_times = 0
                         last_loss = current_loss
                 embeds = model.encode(train_data.x, edge_index=train_data.pos_edge_label_index)
-                nodes_res = node_prediction(embeds.detach(), dataset.num_classes, data.y, data.train_mask,
+                _, nodes_res = node_prediction(embeds.detach(), dataset.num_classes, data.y, data.train_mask,
                                             data.test_mask, lr=0.01, wd=1e-4,
                                             patience = 100, max_epochs=3000)
                 acc_train, acc = nodes_res[-1][2], nodes_res[-1][3]
@@ -196,16 +194,15 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
         for lambd in np.logspace(-7, 2, num=1, endpoint=True, base=10.0, dtype=None, axis=0):#np.logspace(-7, 2, num=10, endpoint=True, base=10.0, dtype=None, axis=0):
             for channels in [32, 64, 128, 256, 512]:
             #for channels in [32]:
-                for drop_rate_edge in [0.01, 0.05, 0.1, 0,15, 0.2, 0.25, 0,3, 0.4, 0.5, 0.7]:
+                for drop_rate_edge in [0.01, 0.05, 0.1, 0.2, 0,3, 0.4, 0.5, 0.7]:
                 #for drop_rate_edge in [0.01]:
                     out_dim = channels
                     hid_dim = [channels] * n_layers
                     model = CCA_SSG(in_dim, hid_dim, out_dim, use_mlp=False)
-                    lr1 = 0.005
-                    wd1 = 0
-                    optimizer = torch.optim.Adam(model.parameters(), lr=lr1, weight_decay=wd1)
+                    wd1 = 1e-4
+                    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=wd1)
                     #for epoch in range(300):
-                    for epoch in range(3):
+                    for epoch in range(300):
                         model.train()
                         optimizer.zero_grad()
                         dfr = drop_rate_edge
@@ -244,31 +241,15 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                                                 is_undirected=True, split_labels=True)
                     train_data, val_data, test_data = transform(dataset[0])
                     embeds = model.get_embedding(train_data)
-                    adj_train = to_dense_adj(train_data.edge_index,  max_num_nodes=N)
-                    adj_train = adj_train[0]
-                    #print(embeds.shape, adj_train.shape)
-                    weight_tensor, norm = compute_loss_para(adj_train)
                     logreg = LogReg(embeds.shape[1], adj_train.shape[1])
-                    lr2 = args.lr
-                    wd2 = 1e-4
-                    opt = torch.optim.Adam(logreg.parameters(), lr=lr2, weight_decay=wd2)
-
-                    loss_fn = F.binary_cross_entropy
-                    output_activation = nn.Sigmoid()
-
-                    last_loss = 1e10
-                    patience = args.patience
-                    triggertimes = 0
-                    best_val_roc = 0
-                    best_val_ap = 0
-
+                    opt = torch.optim.Adam(logreg.parameters(), lr=args.lr, weight_decay=1e-4)
 
                     _, res = edge_prediction(embeds.detach(), embeds.shape[1], train_data, test_data, val_data,
                                              lr=0.01, wd=1e-4,
-                                             patience = 100, max_epochs=MAX_EPOCH_EVAL)
+                                             patience = args.patience, max_epochs=MAX_EPOCH_EVAL)
                     val_ap, val_roc, test_ap, test_roc, train_ap, train_roc = res[-1][1], res[-1][2], res[-1][3], res[-1][4], res[-1][5], res[-1][6]
                     _, nodes_res = node_prediction(embeds.detach(), dataset.num_classes, data.y, data.train_mask, data.test_mask,
-                                                lr=0.01, wd=1e-4, patience = 100, max_epochs=MAX_EPOCH_EVAL)
+                                                lr=0.01, wd=1e-4, patience = args.patience, max_epochs=MAX_EPOCH_EVAL)
 
                     acc_train, acc = nodes_res[-1][2], nodes_res[-1][3]
 
@@ -304,14 +285,10 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                                     use_graph=True,
                                     regularize=True)
                     z = model(data)
-                    lr1 = 0.01
-                    wd1 = 1e-4
-                    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=wd1)
+                    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
                     for epoch in range(args.epochs):
                         model.train()
                         optimizer.zero_grad()
-
-
                         new_data1 = random_permutation(data)
 
                         z = model(data)
@@ -335,10 +312,10 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                     embeds = model.get_embedding(train_data).detach()
                     _, res = edge_prediction(embeds, embeds.shape[1], train_data, test_data, val_data,
                                         lr=0.01, wd=1e-4,
-                                        patience = 100, max_epochs=MAX_EPOCH_EVAL)
+                                        patience = args.patience, max_epochs=MAX_EPOCH_EVAL)
                     epoch, val_ap, val_roc, test_ap, test_roc, train_ap, train_roc  = res[-1]
                     _, nodes_res = node_prediction(embeds, dataset.num_classes, data.y, data.train_mask, data.test_mask, lr=0.01, wd=1e-4,
-                                                                   patience = 100, max_epochs=MAX_EPOCH_EVAL)
+                                                                   patience = args.patience, max_epochs=MAX_EPOCH_EVAL)
                     _, _, acc_train, acc = nodes_res[-1]
 
                     results += [[ 'ICA linear', args.dataset, args.non_linear, True, args.lr, channels,
@@ -375,7 +352,6 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                     # training loop
 
                     print("Training..")
-                    epoch = 0
                     model.train()
                     x = data.x.to(device)
                     u = torch.nn.functional.one_hot(data.y,
@@ -401,11 +377,11 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                     embeds = params['encoder'][0].detach()
                     _, res = edge_prediction(embeds, embeds.shape[1], train_data, test_data, val_data,
                                         lr=0.01, wd=1e-4,
-                                        patience = 100, max_epochs=MAX_EPOCH_EVAL)
+                                        patience = args.patience, max_epochs=MAX_EPOCH_EVAL)
                     epoch, val_ap, val_roc, test_ap, test_roc, train_ap, train_roc = res[-1]
                     _, nodes_res = node_prediction(embeds, dataset.num_classes, data.y, data.train_mask, data.test_mask,
                                                    lr=0.01, wd=1e-4,
-                                                   patience = 100, max_epochs=MAX_EPOCH_EVAL)
+                                                   patience = args.patience, max_epochs=MAX_EPOCH_EVAL)
                     acc_train, acc = nodes_res[-1][2], nodes_res[-1][3]
 
                     results += [[ 'ICA nonlinear', args.dataset, args.non_linear, True, args.lr, channels,
