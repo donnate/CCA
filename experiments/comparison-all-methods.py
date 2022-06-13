@@ -45,10 +45,11 @@ parser.add_argument('--patience', type=int, default=30)
 parser.add_argument('--normalize', type=parse_boolean, default=True)
 parser.add_argument('--non_linear', type=str, default='relu')
 parser.add_argument('--lr', type=float, default=0.01)
+parser.add_argument('--max_epoch_eval', type=int, default=2000)
 parser.add_argument('--result_file', type=str, default="/results/link_prediction_all_")
 args = parser.parse_args()
 
-MAX_EPOCH_EVAL = 2000
+MAX_EPOCH_EVAL = args.max_epoch_eval
 
 file_path = os.getcwd() + str(args.result_file) + '_' + args.dataset +'_normalize' +\
  str(args.normalize) + '_nonlinear' + str(args.non_linear) + '_lr' + str(args.lr) + '.csv'
