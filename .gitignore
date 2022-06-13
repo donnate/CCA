@@ -1,3 +1,4 @@
-Planetoid/
+data/
 results/
 .DS_Store/
+experiments/results/

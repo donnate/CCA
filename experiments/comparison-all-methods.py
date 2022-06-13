@@ -55,9 +55,9 @@ file_path = os.getcwd() + str(args.result_file) + '_' + args.dataset +'_normaliz
  str(args.normalize) + '_nonlinear' + str(args.non_linear) + '_lr' + str(args.lr) + '.csv'
 
 print(file_path)
-
+path = 'data/'
 if args.dataset in ['Cora', 'CiteSeer', 'PubMed']:
-    dataset = Planetoid(root='Planetoid', name=args.dataset, transform=NormalizeFeatures())
+    dataset = Planetoid(root='Planetoid', name=args.dataset, transform=T.NormalizeFeatures())
     data = dataset[0]
 if args.dataset in ['cs', 'physics']:
     dataset = Coauthor(path, args.dataset, 'public')
@@ -98,8 +98,6 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
             alphas = [1, 10, 50, 100, 500]
         else:
             alphas = [0.1, 0.5, 1.0, 5.0, 10]
-
-        #for alpha in [alphas[1]]:
         for alpha in alphas:
             for out_channels in [32, 64, 128, 256, 512]:
 
@@ -129,7 +127,14 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                 triggertimes = 0
 
                 for epoch in range(1, args.epochs):
-                    loss = train(model, optimizer, train_data, model_name, y_randoms)
+                    model.train()
+                    optimizer.zero_grad()
+                    loss = model.loss(train_data.x, y=y_randoms,
+                                      pos_edge_index=train_data.pos_edge_label_index,
+                                      neg_edge_index=train_data.neg_edge_label_index,
+                                      train_mask=train_data.train_mask)
+                    loss.backward()
+                    optimizer.step()
                     loss = float(loss)
                     train_auc, train_ap = model.single_test(data.x,
                                         train_data.pos_edge_label_index,
