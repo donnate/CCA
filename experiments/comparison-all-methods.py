@@ -55,9 +55,9 @@ file_path = os.getcwd() + str(args.result_file) + '_' + args.dataset +'_normaliz
  str(args.normalize) + '_nonlinear' + str(args.non_linear) + '_lr' + str(args.lr) + '.csv'
 
 print(file_path)
-path = 'data/'
+path =  os.getcwd() + '/data'
 if args.dataset in ['Cora', 'CiteSeer', 'PubMed']:
-    dataset = Planetoid(root='Planetoid', name=args.dataset, transform=T.NormalizeFeatures())
+    dataset = Planetoid(root=path  + '/Planetoid', name=args.dataset, transform=T.NormalizeFeatures())
     data = dataset[0]
 if args.dataset in ['cs', 'physics']:
     dataset = Coauthor(path, args.dataset, 'public')
@@ -100,7 +100,6 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
             alphas = [0.1, 0.5, 1.0, 5.0, 10]
         for alpha in alphas:
             for out_channels in [32, 64, 128, 256, 512]:
-
                 if model_name == 'VGNAE':
                     model = DeepVGAE(data.x.size()[1], out_channels * 2, out_channels,
                                  normalize=True, alpha=alpha,
@@ -247,6 +246,8 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                                                 is_undirected=True, split_labels=True)
                     train_data, val_data, test_data = transform(dataset[0])
                     embeds = model.get_embedding(train_data)
+                    adj_train = to_dense_adj(train_data.edge_index,  max_num_nodes=N)
+                    adj_train = adj_train[0]
                     logreg = LogReg(embeds.shape[1], adj_train.shape[1])
                     opt = torch.optim.Adam(logreg.parameters(), lr=args.lr, weight_decay=1e-4)
 
@@ -259,12 +260,16 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
 
                     acc_train, acc = nodes_res[-1][2], nodes_res[-1][3]
 
-                    results += [['CCA', args.dataset, str(args.non_linear), args.normalize, args.lr, out_channels,
-                                          training_rate, val_ratio, test_ratio, alpha, train_auc, train_ap,
-                                          roc_auc, ap, acc_train, acc, epoch, 0, 0]]
-                    print(['CCA', args.dataset, str(args.non_linear), args.normalize, args.lr, out_channels,
-                                          training_rate, val_ratio, test_ratio, alpha, train_auc, train_ap,
-                                          roc_auc, ap, acc_train, acc, epoch, 0, 0])
+                    results += [['CCA', args.dataset, str(args.non_linear),
+                                     args.normalize, args.lr, channels,
+                                     training_rate, val_ratio, test_ratio,
+                                     n, lambd, train_roc, train_ap,
+                                     test_roc, test_ap, acc_train, acc, epoch, 0, 0]]
+                    print(['CCA', args.dataset, str(args.non_linear),
+                               args.normalize, args.lr, channels,
+                               training_rate, val_ratio, test_ratio,
+                               lambd, train_roc, train_ap,
+                               test_roc, test_ap, acc_train, acc, epoch, 0, 0])
 
                     res1 = pd.DataFrame(results, columns=['model', 'dataset', 'non-linearity', 'normalize',  'lr', 'channels',
                                                         'train_rate','val_ratio', 'test_ratio', 'alpha',  'train_auc', 'train_ap',
@@ -325,8 +330,8 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                     _, _, acc_train, acc = nodes_res[-1]
 
                     results += [[ 'ICA linear', args.dataset, args.non_linear, True, args.lr, channels,
-                                 training_rate, val_ratio, test_ratio, lambd, train_roc, train_ap, test_roc,
-                                 test_ap, acc_train, acc, epoch, drop_rate_edge, drop_rate_edge ]]
+                                 training_rate, val_ratio, test_ratio, None, train_roc, train_ap, test_roc,
+                                 test_ap, acc_train, acc, epoch, None, None ]]
 
                     res1 = pd.DataFrame(results, columns=['model', 'dataset', 'non-linearity', 'normalize',  'lr', 'channels',
                                     'train_rate','val_ratio', 'test_ratio', 'alpha',  'train_auc', 'train_ap',
@@ -391,8 +396,8 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                     acc_train, acc = nodes_res[-1][2], nodes_res[-1][3]
 
                     results += [[ 'ICA nonlinear', args.dataset, args.non_linear, True, args.lr, channels,
-                                 training_rate, val_ratio, test_ratio, lambd, train_roc, train_ap, test_roc,
-                                 test_ap, acc_train, acc, epoch, drop_rate_edge, drop_rate_edge ]]
+                                 training_rate, val_ratio, test_ratio, None, train_roc, train_ap, test_roc,
+                                 test_ap, acc_train, acc, epoch, None, None]]
 
                     res1 = pd.DataFrame(results, columns=['model', 'dataset', 'non-linearity', 'normalize',  'lr', 'channels',
                                     'train_rate','val_ratio', 'test_ratio', 'alpha',  'train_auc', 'train_ap',

@@ -264,17 +264,14 @@ for _ in range(10): # 10
                 with torch.no_grad():
                     val_roc, val_ap = get_scores(val_data.pos_edge_label_index, val_data.neg_edge_label_index, logits)
                     test_roc, test_ap = get_scores(test_data.pos_edge_label_index, test_data.neg_edge_label_index, logits)
-
                     if val_roc >= best_val_roc:
                         best_val_roc = val_roc
                         if test_roc > eval_roc:
                             eval_roc = test_roc
-
                     if val_ap >= best_val_ap:
                         best_val_ap = val_ap
                         if test_ap > eval_ap:
                             eval_ap = test_ap
-
                 print('Epoch:{}, val_ap:{:.4f}, val_roc:{:4f}, test_ap:{:4f}, test_roc:{:4f}'.format(epoch, val_ap, val_roc, test_ap, test_roc))
                 print('Linear evaluation AP:{:.4f}'.format(eval_ap))
                 print('Linear evaluation ROC:{:.4f}'.format(eval_roc))
