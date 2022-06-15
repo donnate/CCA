@@ -1,7 +1,7 @@
 import sys, os
 import os.path as osp
 import numpy as np
-sys.path.append('../../cca')
+sys.path.append('/scratch/midway3/cdonnat/CCA')
 
 import argparse
 import pandas as pd
@@ -46,18 +46,19 @@ parser.add_argument('--normalize', type=parse_boolean, default=True)
 parser.add_argument('--non_linear', type=str, default='relu')
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--max_epoch_eval', type=int, default=2000)
-parser.add_argument('--result_file', type=str, default="/results/link_prediction_all_")
+parser.add_argument('--result_file', type=str, default="link_prediction_all_")
 args = parser.parse_args()
 
 MAX_EPOCH_EVAL = args.max_epoch_eval
 
-file_path = os.getcwd() + str(args.result_file) + '_' + args.dataset +'_normalize' +\
+file_path =  '/scratch/midway3/cdonnat/CCA/experiments/results/' + str(args.result_file) + '_' + args.dataset +'_normalize' +\
  str(args.normalize) + '_nonlinear' + str(args.non_linear) + '_lr' + str(args.lr) + '.csv'
 
 print(file_path)
 
+path = '/scratch/midway3/cdonnat/CCA/data'
 if args.dataset in ['Cora', 'CiteSeer', 'PubMed']:
-    dataset = Planetoid(root='Planetoid', name=args.dataset, transform=NormalizeFeatures())
+    dataset = Planetoid(root='/scratch/midway3/cdonnat/CCA/data/Planetoid', name=args.dataset, transform=NormalizeFeatures())
     data = dataset[0]
 if args.dataset in ['cs', 'physics']:
     dataset = Coauthor(path, args.dataset, 'public')
@@ -125,12 +126,21 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                 model = model.to(device)
                 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-                last_loss = 1e10
+                last_loss = 0
                 triggertimes = 0
 
                 for epoch in range(1, args.epochs):
-                    loss = train(model, optimizer, train_data, model_name, y_randoms)
+                    model.train()
+                    optimizer.zero_grad()
+                    loss = model.loss(train_data.x, y=y_randoms,
+                                      pos_edge_index=train_data.pos_edge_label_index,
+                                      neg_edge_index=train_data.neg_edge_label_index,
+                                      train_mask=train_data.train_mask)
+                    loss.backward()
+                    optimizer.step()
+                    
                     loss = float(loss)
+                    model.eval()
                     train_auc, train_ap = model.single_test(data.x,
                                         train_data.pos_edge_label_index,
                                         train_data.pos_edge_label_index,
@@ -147,7 +157,7 @@ for training_rate in [0.1, 0.2, 0.4, 0.6, 0.8, 0.85]:
                                         val_data.pos_edge_label_index,
                                         val_data.neg_edge_label_index)
                     current_loss = np.mean(out)
-                    if current_loss >= last_loss:
+                    if current_loss < last_loss:
                         trigger_times += 1
                         #print('Trigger Times:', trigger_times)
                         if trigger_times >= args.patience:
