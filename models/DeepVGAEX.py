@@ -48,21 +48,19 @@ class Decoder_Y(nn.Module):
 
 class DeepVGAEX(VGAE):
     def __init__(self, enc_in_channels, enc_hidden_channels, enc_out_channels,
-                h_dims_reconstructiony, y_dim, dropout=0.5, normalize=True,
-                loss_y = torch.nn.MSELoss(),
-                lambda_y =1., non_linearity=nn.ReLU()):
+                n_layers, normalize=True,
+                h_dims_reconstructiony = [64, 64], y_dim=1, dropout=0.5,
+                lambda_y =1., activation='relu'):
         super(DeepVGAEX, self).__init__(encoder=VGCNEncoder(enc_in_channels,
                                                            enc_hidden_channels,
-                                                           enc_out_channels, normalize=normalize,
-                                                           alpha=0.5,
-                                                           beta=1.0, gnn_type='normal',
-                                                           non_linearity=non_linearity),
+                                                           enc_out_channels,
+                                                           n_layers=n_layers,
+                                                           normalize=normalize,
+                                                           activation=activation),
                                        decoder=InnerProductDecoder())
         self.decoder_y=Decoder_Y(enc_out_channels, h_dims_reconstructiony,
                                  y_dim, dropout)
-        self.loss_y = loss_y
         self.dropout = dropout
-        self.loss_y = loss_y
         self.lambda_y = lambda_y
 
     def forward(self, x, edge_index):
@@ -77,7 +75,7 @@ class DeepVGAEX(VGAE):
         z = self.encode(x, pos_edge_index)
         z_x, z_sd = self.encoder(x, pos_edge_index)
 
-        mu_y_hat, var_y_hat =  self.decoder_y.sample_forward(z_x, z_sd)
+        mu_y_hat, logstd =  self.decoder_y.sample_forward(z_x, z_sd)
         pos_loss = -torch.log(
             self.decoder(z, pos_edge_index, sigmoid=True) + 1e-15).mean()
 
@@ -91,8 +89,9 @@ class DeepVGAEX(VGAE):
 
         kl_loss = 1 / x.size(0) * self.kl_loss()
         ### add classification  loss to the thing
+        s2 = logstd.exp()**2
 
-        y_loss = 0.5 * torch.sum(torch.mul(torch.square(mu_y_hat[train_mask,:] - y.long()[train_mask,:]), 1.0/var_y_hat[train_mask,:]))
+        y_loss =  - 0.5 * torch.sum( 2 * logstd[train_mask,:] + torch.mul(torch.square(mu_y_hat[train_mask,:] - y.long()[train_mask,:]), 1.0/s2[train_mask,:]))
 
         return pos_loss + neg_loss + kl_loss + self.lambda_y * y_loss
 
