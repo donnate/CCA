@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=array-job
-#SBATCH --output=array_%A_%a.out
-#SBATCH --error=array_%A_%a.err
+#SBATCH --output=logs/array_%A_%a.out
+#SBATCH --error=logs/array_%A_%a.err
 #SBATCH --array=1-50
 #SBATCH --time=35:00:00
 #SBATCH --account=pi-cdonnat
@@ -20,6 +20,6 @@ module load pytorch
 cd $SCRATCH/$USER/CCA
 echo $1
 echo $2
-python3 experiments/comparison-all-methods.py --epochs 2000 --patience 205 --dataset $1 --lr $2 --result_file $SLURM_ARRAY_TASK_ID
+python3 experiments/comparison-all-methods.py --epochs 2000 --patience 3 --dataset $1 --lr $2 --result_file $SLURM_ARRAY_TASK_ID
 ~
 ~
