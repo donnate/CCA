@@ -1,13 +1,12 @@
 #!/bin/sh
 
-#SBATCH --partition=broadwl
-#SBATCH --time=24:00:00
-#SBATCH --nodes=2
+#SBATCH --partition=caslake
+#SBATCH --account=pi-cdonnat
+#SBATCH --time=48:00:00
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=28
-#SBATCH --exclusive
 
 # Load the default version of GNU Parallel
-module load python/anaconda-2021.05
+module load python
+module load pytorch
 
-python3 experiments-link-prediction-all-methods.py --epochs 300 --patience 30 --dataset Cora
+python3 comparison-all-methods.py --epochs 1000 --patience 10 --lr 0.01 --dataset Cora
