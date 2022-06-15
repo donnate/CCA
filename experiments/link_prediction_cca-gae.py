@@ -134,13 +134,13 @@ for epoch in range(1, 201):
             if val_ap >= best_val_ap:
                 best_val_ap = val_ap
                 if test_ap > eval_ap:
-                    eval_ap = test_ap    
+                    eval_ap = test_ap
 
     print('Epoch={:03d}, loss={:.4f}'.format(epoch, loss.item()))
     print('Epoch:{}, val_ap:{:.4f}, val_roc:{:4f}, test_ap:{:4f}, test_roc:{:4f}'.format(epoch, val_ap, val_roc, test_ap, test_roc))
     print('Linear evaluation AP:{:.4f}'.format(eval_ap))
     print('Linear evaluation ROC:{:.4f}'.format(eval_roc))
-    
+
 x = range(2708)
 x = np.repeat(x, 2708, axis=0)
 x = torch.tensor(x)
@@ -152,9 +152,9 @@ rec = rec.detach()
 # graph, feat, labels, num_class, train_idx, val_idx, test_idx = load('cora')
 # adj = graph.adj().to_dense()
 # weight_tensor, norm = compute_loss_para(adj)
-    
+
 # in_dim = feat.shape[1]
-# z_dim = 16 
+# z_dim = 16
 # h_dim = [32]
 
 # sampler = GraphAutoencoder([in_dim, z_dim, h_dim])
@@ -165,7 +165,7 @@ rec = rec.detach()
 # for epoch in range(200):
 #    sampler.train()
 #    optimizer.zero_grad()
-   
+
 #    reconstruction = sampler(graph, feat)
 
 #    loss = norm*loss_fn(reconstruction.view(-1), adj.view(-1), weight = weight_tensor)
@@ -264,17 +264,14 @@ for _ in range(10): # 10
                 with torch.no_grad():
                     val_roc, val_ap = get_scores(val_data.pos_edge_label_index, val_data.neg_edge_label_index, logits)
                     test_roc, test_ap = get_scores(test_data.pos_edge_label_index, test_data.neg_edge_label_index, logits)
-
                     if val_roc >= best_val_roc:
                         best_val_roc = val_roc
                         if test_roc > eval_roc:
                             eval_roc = test_roc
-
                     if val_ap >= best_val_ap:
                         best_val_ap = val_ap
                         if test_ap > eval_ap:
                             eval_ap = test_ap
-
                 print('Epoch:{}, val_ap:{:.4f}, val_roc:{:4f}, test_ap:{:4f}, test_roc:{:4f}'.format(epoch, val_ap, val_roc, test_ap, test_roc))
                 print('Linear evaluation AP:{:.4f}'.format(eval_ap))
                 print('Linear evaluation ROC:{:.4f}'.format(eval_roc))

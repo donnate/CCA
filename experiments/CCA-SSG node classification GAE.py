@@ -47,9 +47,9 @@ graph, feat, labels, num_class, train_idx, val_idx, test_idx = load('cora')
 adj = graph.adj().to_dense()
 
 weight_tensor, norm = compute_loss_para(adj)
-    
+
 in_dim = feat.shape[1]
-z_dim = 16 
+z_dim = 16
 h_dim = [32]
 
 sampler = GraphAutoencoder([in_dim, z_dim, h_dim])
@@ -60,7 +60,7 @@ optimizer = th.optim.Adam(sampler.parameters(), lr=1e-2) # , weight_decay=5e-4
 for epoch in range(200):
     sampler.train()
     optimizer.zero_grad()
-    
+
     reconstruction = sampler(graph, feat)
 
     loss = norm*loss_fn(reconstruction.view(-1), adj.view(-1), weight = weight_tensor)
@@ -91,27 +91,27 @@ hid_dim = 512
 out_dim = 512
 n_layers = 2
 
-# z_dim = 16 
+# z_dim = 16
 # h_dim = [32]
 
 # sampler = VariationalGraphAutoencoder([in_dim, z_dim, h_dim])
 model = CCA_SSG(in_dim, hid_dim, out_dim, n_layers, use_mlp=False)
 
-lr1 = 1e-3 
+lr1 = 1e-3
 wd1 = 0
 optimizer = th.optim.Adam(model.parameters(), lr=lr1, weight_decay=wd1)
 
 N = graph.number_of_nodes()
-    
+
 for epoch in range(25):
     model.train()
   #  sampler.train()
     optimizer.zero_grad()
-    
+
     dfr = 0.2
     der = 0.2
-    
-    
+
+
     graph1, graph2, feat1, feat2 = gae_aug(rec, graph, feat, 0.20, 0.20)
     graph1 = graph1.remove_self_loop().add_self_loop()
     graph2 = graph2.remove_self_loop().add_self_loop()
@@ -130,9 +130,9 @@ for epoch in range(25):
     iden = th.tensor(np.eye(c.shape[0]))
     loss_dec1 = (iden - c1).pow(2).sum()
     loss_dec2 = (iden - c2).pow(2).sum()
-    
+
     lambd1 = 1e-3
-    
+
     loss = loss_inv + lambd1 * (loss_dec1 + loss_dec2) # - lambd2 * elbo
 
     loss.backward()
@@ -161,7 +161,7 @@ test_labels = label[test_idx]
 
 train_feat = feat[train_idx]
 val_feat = feat[val_idx]
-test_feat = feat[test_idx] 
+test_feat = feat[test_idx]
 
 ''' Linear Evaluation '''
 logreg = LogReg(train_embs.shape[1], num_class)
@@ -173,7 +173,7 @@ loss_fn = nn.CrossEntropyLoss()
 
 best_val_acc = 0
 eval_acc = 0
-    
+
 for epoch in range(2000):
     logreg.train()
     opt.zero_grad()
@@ -205,7 +205,3 @@ for epoch in range(2000):
 
 
 # In[ ]:
-
-
-
-

@@ -35,16 +35,16 @@ def get_scores(edges_pos, edges_neg, adj_rec):
     return roc_score, ap_score
 
 
-def train(model, optimizer, train_data, model_name, y_randoms):
-    model.train()
-    optimizer.zero_grad()
-    loss = model.loss(train_data.x, y=y_randoms,
-                      pos_edge_index=train_data.pos_edge_label_index,
-                      neg_edge_index=train_data.neg_edge_label_index,
-                      train_mask=train_data.train_mask)
-    loss.backward()
-    optimizer.step()
-    return loss
+# def train(model, optimizer, train_data, model_name, y_randoms):
+#     model.train()
+#     optimizer.zero_grad()
+#     loss = model.loss(train_data.x, y=y_randoms,
+#                       pos_edge_index=train_data.pos_edge_label_index,
+#                       neg_edge_index=train_data.neg_edge_label_index,
+#                       train_mask=train_data.train_mask)
+#     loss.backward()
+#     optimizer.step()
+#     return loss
 
 
 def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
