@@ -60,6 +60,7 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
     add_neg_samples = True
     loss_fn = torch.nn.BCELoss()
     results = []
+    best_epoch  = 0
     pos_edge_index = train_data.pos_edge_label_index
     neg_edge_index = train_data.neg_edge_label_index
     for epoch in range(max_epochs):
@@ -106,14 +107,16 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
                 #print('trigger times: 0')
                 trigger_times = 0
                 last_roc= current_roc
-    return(logreg, results)
+                best_epoch = epoch
+    return(logreg, results, best_epoch)
 
 
 def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
                     lr=0.01, wd=1e-4,
                     patience = 30, max_epochs=3000):
     #input_dim, hidden_dim, output_dim, n_layers=2, activation='relu', slope=.1, device='cpu', use_bn=False
-    node_classifier = MLP(embeds.shape[1], embeds.shape[1], out_dim,  n_layers=2)
+    #node_classifier = MLP(embeds.shape[1], embeds.shape[1], out_dim,  n_layers=1)
+    node_classifier = LogReg(embeds.shape[1], out_dim)
     train_labels = y[train_mask]
     test_labels = y[test_mask]
     val_labels = y[val_mask]
@@ -121,6 +124,7 @@ def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
     res_temp = []
     trigger_times = 0
     last_acc = 0
+    best_epoch = 0
     for epoch_temp in range(max_epochs):
         node_classifier.train();
         optimizer_temp.zero_grad();
@@ -147,5 +151,6 @@ def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
             #print('trigger times: 0')
             trigger_times = 0
             last_acc = current_acc
+            best_epoch = epoch_temp
 
-    return(node_classifier, res_temp)
+    return(node_classifier, res_temp, best_epoch)
