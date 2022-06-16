@@ -53,8 +53,8 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
     logreg = LogReg(embeds.shape[1], out_dim)
     opt = torch.optim.Adam(logreg.parameters(), lr=lr, weight_decay=wd)
     output_activation = torch.nn.Sigmoid()
-    last_loss = 1e10
-    triggertimes = 0
+    last_roc = 0
+    trigger_times = 0
     best_val_roc = 0
     best_val_ap = 0
     add_neg_samples = True
@@ -96,7 +96,7 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
 
             current_roc = val_roc
             results += [[epoch, val_ap, val_roc, test_ap, test_roc, train_ap, train_roc ]]
-            if current_roc <= last_loss:
+            if current_roc <= last_roc:
                 trigger_times += 1
                 #print('Trigger Times:', trigger_times)
                 if trigger_times >= patience:
@@ -105,7 +105,7 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
             else:
                 #print('trigger times: 0')
                 trigger_times = 0
-            last_loss = current_loss
+                last_roc= current_roc
     return(logreg, results)
 
 
@@ -120,6 +120,7 @@ def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
     optimizer_temp = torch.optim.Adam(node_classifier.parameters(), lr=0.005)
     res_temp = []
     trigger_times = 0
+    last_acc = 0
     for epoch_temp in range(max_epochs):
         node_classifier.train();
         optimizer_temp.zero_grad();
@@ -136,7 +137,7 @@ def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
 
 
         current_acc = val_acc
-        if current_acc <= last_loss:
+        if current_acc <= last_acc:
             trigger_times += 1
             #print('Trigger Times:', trigger_times)
             if trigger_times >= patience:
@@ -145,5 +146,6 @@ def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
         else:
             #print('trigger times: 0')
             trigger_times = 0
+            last_acc = current_acc
 
     return(node_classifier, res_temp)

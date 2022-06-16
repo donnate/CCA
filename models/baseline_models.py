@@ -21,6 +21,7 @@ def weights_init(m):
         nn.init.xavier_uniform_(m.weight.data)
 
 
+
 class GCN(nn.Module): # in_dim, hid_dims, out_dim, normalize=True
     def __init__(self, input_dim, hidden_dim, output_dim, n_layers,
     activation='relu', slope=.1, device='cpu', normalize=True):

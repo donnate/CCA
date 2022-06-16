@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 from torch_geometric.datasets import Planetoid, Coauthor, Amazon
 from torch_geometric.nn import GAE, VGAE, APPNP
-from torch_geometric.transforms import RandomLinkSplit
+from torch_geometric.transforms import RandomLinkSplit, RandomNodeSplit
 import torch_geometric.transforms as T
 from torch_geometric.utils import (
     add_self_loops,
@@ -19,7 +19,7 @@ from torch_geometric.utils import (
     remove_self_loops,
      to_dense_adj
 )
-
+#### MISSING: RANDOMISATION WITH RESPECT TO TRAINING NODES
 
 from models.basicVGNAE import *
 from models.DeepVGAEX import *
@@ -46,6 +46,7 @@ parser.add_argument('--patience', type=int, default=30)
 parser.add_argument('--normalize', type=parse_boolean, default=True)
 parser.add_argument('--non_linear', type=str, default='relu')
 parser.add_argument('--lr', type=float, default=0.01)
+parser.add_argument('--num_train_per_class', type=float, default=20)
 parser.add_argument('--max_epoch_eval', type=int, default=2000)
 parser.add_argument('--result_file', type=str, default="/results/n_experiments_")
 args = parser.parse_args()
@@ -91,14 +92,11 @@ if args.model in ['VGNAE', 'VGAEX']:
         test_ratio = (1.0 - training_rate) / 3 * 2
         transform = RandomLinkSplit(num_val=val_ratio, num_test=test_ratio,
                                     is_undirected=True, split_labels=True)
+        transform_nodes = RandomNodeSplit(split = 'test_rest',
+                                          num_train_per_class = args.num_train_per_class,
+                                          num_val = 500)
         train_data, val_data, test_data = transform(data)
-        all_edge_index = dataset[0].edge_index
-        all_edge_index_tmp, _ = remove_self_loops(all_edge_index)
-        all_edge_index_tmp, _ = add_self_loops(all_edge_index_tmp) ### make sure they are there, so we don't sample them using negative sampling
-        neg_edge_index = negative_sampling(all_edge_index_tmp, num_nodes=data.num_nodes,
-                                           num_neg_samples=train_data.pos_edge_label_index.size(1))
-
-        #for alpha in alphas:
+        rand_data = transform_nodes(data)
         for alpha in alphas:
             for n_lay in n_layers:
                 #for out_channels in [ 32]:
@@ -120,8 +118,8 @@ if args.model in ['VGNAE', 'VGAEX']:
                     model = model.to(device)
                     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-                    last_loss = 0
-                    triggertimes = 0
+                    last_ac = 0
+                    trigger_times = 0
 
                     for epoch in range(1, args.epochs):
                         model.train()
@@ -152,8 +150,8 @@ if args.model in ['VGNAE', 'VGAEX']:
                                                 train_data.pos_edge_label_index,
                                                 val_data.pos_edge_label_index,
                                                 val_data.neg_edge_label_index)
-                            current_loss = np.mean(out)
-                            if current_loss <= last_loss:
+                            current_ac = np.mean(out)
+                            if current_ac <= last_ac:
                                 trigger_times += 1
                                 #print('Trigger Times:', trigger_times)
                                 #if triggertimes == 2: optimizer = torch.optim.Adam(model.parameters(), lr=args.lr/2)
@@ -165,27 +163,43 @@ if args.model in ['VGNAE', 'VGAEX']:
                             else:
                                 #print('trigger times: 0')
                                 trigger_times = 0
-                                last_loss = current_loss
+                                last_ac = current_ac
                     embeds = model.encode(train_data.x, edge_index=train_data.pos_edge_label_index)
                     _, nodes_res = node_prediction(embeds.detach(),
                                                    dataset.num_classes, data.y,
-                                                   data.train_mask, data.test_mask,
-                                                   lr=0.01, wd=1e-4, patience = 100,
+                                                   rand_data.train_mask,
+                                                   rand_data.test_mask,
+                                                   rand_data.val_mask,
+                                                   lr=0.01, wd=1e-4,
+                                                   patience = 7,
                                                    max_epochs=3000)
                     acc_train, acc = nodes_res[-1][2], nodes_res[-1][3]
-                    results += [[args.model, args.dataset, str(args.non_linear), args.normalize, args.lr, out_channels,
-                                          training_rate, val_ratio, test_ratio, n_lay, alpha, train_auc, train_ap,
-                                          roc_auc, ap, acc_train, acc, epoch, 0, 0]]
-                    res1 = pd.DataFrame(results, columns=['model', 'dataset', 'non-linearity', 'normalize',  'lr', 'channels',
-                                                          'train_rate','val_ratio', 'test_ratio', 'n_layers', 'alpha',  'train_auc', 'train_ap',
-                                                          'test_auc', 'test_ap', 'accuracy_train', 'accuracy_test', 'epoch',
-                                                          'drop_edge_rate', 'drop_feat_rate'])
+
+                    _, nodes_res_default = node_prediction(embeds.detach(),
+                                                   dataset.num_classes, data.y,
+                                                   data.train_mask,
+                                                   data.test_mask,
+                                                   data.val_mask,
+                                                   lr=0.01, wd=1e-4,
+                                                   patience = 7,
+                                                   max_epochs=3000)
+                    acc_train_default, acc_default = nodes_res_default[-1][2], nodes_res_default[-1][3]
+                    results += [[args.model, args.dataset, str(args.non_linear),
+                                 args.normalize, args.lr, out_channels,
+                                 training_rate, val_ratio, test_ratio, n_lay, alpha, train_auc, train_ap,
+                                 roc_auc, ap, acc_train, acc, acc_train_default, acc_default, epoch, 0, 0]]
+                    res1 = pd.DataFrame(results, columns=['model', 'dataset', 'non-linearity',
+                                                              'normalize',  'lr', 'channels',
+                                                              'train_rate','val_ratio', 'test_ratio',
+                                                              'n_layers', 'lambd',  'train_auc', 'train_ap',
+                                                              'test_auc', 'test_ap', 'accuracy_train',
+                                                              'accuracy_test', 'accuracy_train_default',
+                                                              'accuracy_test_default', 'epoch',
+                                                              'drop_edge_rate', 'drop_feat_rate'])
                     res1.to_csv(file_path, index=False)
 elif args.model == 'CCA':
     #### Test the CCA approach
     print("CCA_SSG")
-    data = dataset[0]
-    in_dim = data.num_features
     N = data.num_nodes
 
     ##### Train the CCA model
@@ -194,18 +208,19 @@ elif args.model == 'CCA':
         val_ratio = (1.0 - training_rate) / 3
         test_ratio = (1.0 - training_rate) / 3 * 2
         transform = RandomLinkSplit(num_val=val_ratio, num_test=test_ratio,
-                                        is_undirected=True, split_labels=True)
+                                    is_undirected=True, split_labels=True)
+        transform_nodes = RandomNodeSplit(split = 'test_rest',
+                                          num_train_per_class = args.num_train_per_class,
+                                          num_val = 500)
         train_data, val_data, test_data = transform(data)
+        rand_data = transform_nodes(data)
         for n in n_layers:
-            #for lambd in [1.]:
             for lambd in np.logspace(-7, 2, num=1, endpoint=True, base=10.0, dtype=None, axis=0):#np.logspace(-7, 2, num=10, endpoint=True, base=10.0, dtype=None, axis=0):
                 for channels in [32, 64, 128, 256, 512]:
-                #for channels in [32]:
                     for drop_rate_edge in [0.01, 0.05, 0.1, 0.2, 0,3, 0.4, 0.5, 0.7]:
-                    #for drop_rate_edge in [0.01]:
-                        out_dim = channels
-                        hid_dim = [channels] * n
-                        model = CCA_SSG(in_dim, hid_dim, out_dim, use_mlp=False)
+                        model = CCA_SSG(data.num_features, channels, channels, n,
+                                        activation=args.non_linear, slope=.1, device=dev,
+                                        normalize=args.normalize, use_mlp=False)
                         wd1 = 1e-4
                         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
                                                      weight_decay=wd1)
@@ -213,10 +228,8 @@ elif args.model == 'CCA':
                         for epoch in range(300):
                             model.train()
                             optimizer.zero_grad()
-                            dfr = drop_rate_edge
-                            der =drop_rate_edge
-                            new_data1 = random_aug(data, dfr , der )
-                            new_data2 = random_aug(data, dfr, der)
+                            new_data1 = random_aug(data, drop_rate_edge, drop_rate_edge)
+                            new_data2 = random_aug(data, drop_rate_edge, drop_rate_edge)
 
                             z1, z2 = model(new_data1, new_data2)
 
@@ -262,27 +275,43 @@ elif args.model == 'CCA':
                         val_ap, val_roc, test_ap, test_roc, train_ap, train_roc = res[-1][1], res[-1][2], res[-1][3], res[-1][4], res[-1][5], res[-1][6]
                         _, nodes_res = node_prediction(embeds.detach(),
                                                        dataset.num_classes, data.y,
-                                                       data.train_mask, data.test_mask,
+                                                       rand_data.train_mask, rand_data.test_mask,
+                                                       rand_data.val_mask,
                                                        lr=0.01, wd=1e-4,
                                                        patience = args.patience,
                                                        max_epochs=MAX_EPOCH_EVAL)
 
                         acc_train, acc = nodes_res[-1][2], nodes_res[-1][3]
 
+                        _, nodes_res_default = node_prediction(embeds.detach(),
+                                                       dataset.num_classes, data.y,
+                                                       data.train_mask, data.test_mask,
+                                                       data.val_mask,
+                                                       lr=0.01, wd=1e-4,
+                                                       patience = args.patience,
+                                                       max_epochs=MAX_EPOCH_EVAL)
+                        acc_train_default, acc_default = nodes_res[-1][2], nodes_res[-1][3]
+
                         results += [['CCA', args.dataset, str(args.non_linear),
                                      args.normalize, args.lr, channels,
                                      training_rate, val_ratio, test_ratio,
                                      n, lambd, train_roc, train_ap,
-                                     test_roc, test_ap, acc_train, acc, epoch, 0, 0]]
+                                     test_roc, test_ap, acc_train, acc,
+                                     acc_train_default, acc_default, epoch, 0, 0]]
                         print(['CCA', args.dataset, str(args.non_linear),
                                args.normalize, args.lr, channels,
                                training_rate, val_ratio, test_ratio,
                                n, lambd, train_roc, train_ap,
-                               test_roc, test_ap, acc_train, acc, epoch, 0, 0])
+                               test_roc, test_ap, acc_train, acc,
+                               acc_train_default, acc_default, epoch, 0, 0])
 
-                        res1 = pd.DataFrame(results, columns=['model', 'dataset', 'non-linearity', 'normalize',  'lr', 'channels',
-                                                            'train_rate','val_ratio', 'test_ratio', 'n_layers', 'lambd',  'train_auc', 'train_ap',
-                                                              'test_auc', 'test_ap', 'accuracy_train', 'accuracy_test', 'epoch',
+                        res1 = pd.DataFrame(results, columns=['model', 'dataset', 'non-linearity',
+                                                              'normalize',  'lr', 'channels',
+                                                              'train_rate','val_ratio', 'test_ratio',
+                                                              'n_layers', 'lambd',  'train_auc', 'train_ap',
+                                                              'test_auc', 'test_ap', 'accuracy_train',
+                                                              'accuracy_test', 'accuracy_train_default',
+                                                              'accuracy_test_default', 'epoch',
                                                               'drop_edge_rate', 'drop_feat_rate'])
                         res1.to_csv(file_path, index=False)
 elif args.model == 'ICA':

@@ -13,12 +13,18 @@ class CCA_SSG(nn.Module):
         normalize (bool, optional): Whether to normalize
             the embeddings at each layer
     """
-    def __init__(self, in_dim, hid_dims, out_dim, use_mlp=False, normalize=True):
+    def __init__(self, input_dim, hidden_dim, output_dim, n_layers,
+    activation='relu', slope=.1, device='cpu', normalize=True, use_mlp=False):
         super().__init__()
-        if not use_mlp:
-            self.backbone = GCN(in_dim, hid_dims, out_dim, normalize)
+        self.use_mlp = use_mlp
+        if not self.use_mlp:
+            self.backbone = GCN(input_dim, hidden_dim, output_dim,
+                                n_layers, activation=activation, slope=slope,
+                                device=device, normalize=normalize)
         else:
-            self.backbone = MLP(in_dim, hid_dims, out_dim)
+            self.backbone = MLP(input_dim, hidden_dim, output_dim,
+                                n_layers, activation=activation, slope=slope,
+                                device=device, normalize=normalize)
 
     def get_embedding(self, data1):
         out = self.backbone(data1.x, data1.edge_index)
