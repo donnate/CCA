@@ -94,9 +94,9 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
             if (np.isnan(val_roc) ==False) & (val_roc >= best_val_roc):
                 best_val_roc = val_roc
 
-            current_loss = val_roc
+            current_roc = val_roc
             results += [[epoch, val_ap, val_roc, test_ap, test_roc, train_ap, train_roc ]]
-            if current_loss >= last_loss:
+            if current_roc <= last_loss:
                 trigger_times += 1
                 #print('Trigger Times:', trigger_times)
                 if trigger_times >= patience:
@@ -109,14 +109,17 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
     return(logreg, results)
 
 
-def node_prediction(embeds, out_dim, y, train_mask, test_mask, lr=0.01, wd=1e-4,
+def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
+                    lr=0.01, wd=1e-4,
                     patience = 30, max_epochs=3000):
     #input_dim, hidden_dim, output_dim, n_layers=2, activation='relu', slope=.1, device='cpu', use_bn=False
     node_classifier = MLP(embeds.shape[1], embeds.shape[1], out_dim,  n_layers=2)
     train_labels = y[train_mask]
     test_labels = y[test_mask]
+    val_labels = y[val_mask]
     optimizer_temp = torch.optim.Adam(node_classifier.parameters(), lr=0.005)
     res_temp = []
+    trigger_times = 0
     for epoch_temp in range(max_epochs):
         node_classifier.train();
         optimizer_temp.zero_grad();
@@ -128,5 +131,19 @@ def node_prediction(embeds, out_dim, y, train_mask, test_mask, lr=0.01, wd=1e-4,
         preds = torch.argmax(out, dim=1)
         acc_train = torch.sum(preds[train_mask] == train_labels).float() / train_labels.shape[0]
         acc = torch.sum(preds[test_mask] == test_labels).float() / test_labels.shape[0]
+        val_acc = torch.sum(preds[val_mask] == val_labels).float() / val_labels.shape[0]
         res_temp += [[epoch_temp, loss_temp.cpu().item(), acc_train.item(), acc.item()]]
+
+
+        current_acc = val_acc
+        if current_acc <= last_loss:
+            trigger_times += 1
+            #print('Trigger Times:', trigger_times)
+            if trigger_times >= patience:
+                print('Early stopping!\nStart to test process.')
+                break
+        else:
+            #print('trigger times: 0')
+            trigger_times = 0
+
     return(node_classifier, res_temp)
