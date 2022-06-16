@@ -53,13 +53,14 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
     logreg = LogReg(embeds.shape[1], out_dim)
     opt = torch.optim.Adam(logreg.parameters(), lr=lr, weight_decay=wd)
     output_activation = torch.nn.Sigmoid()
-    last_loss = 1e10
-    triggertimes = 0
+    last_roc = 0
+    trigger_times = 0
     best_val_roc = 0
     best_val_ap = 0
     add_neg_samples = True
     loss_fn = torch.nn.BCELoss()
     results = []
+    best_epoch  = 0
     pos_edge_index = train_data.pos_edge_label_index
     neg_edge_index = train_data.neg_edge_label_index
     for epoch in range(max_epochs):
@@ -96,7 +97,7 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
 
             current_roc = val_roc
             results += [[epoch, val_ap, val_roc, test_ap, test_roc, train_ap, train_roc ]]
-            if current_roc <= last_loss:
+            if current_roc <= last_roc:
                 trigger_times += 1
                 #print('Trigger Times:', trigger_times)
                 if trigger_times >= patience:
@@ -105,21 +106,25 @@ def edge_prediction(embeds, out_dim, train_data, test_data, val_data,
             else:
                 #print('trigger times: 0')
                 trigger_times = 0
-            last_loss = current_loss
-    return(logreg, results)
+                last_roc= current_roc
+                best_epoch = epoch
+    return(logreg, results, best_epoch)
 
 
 def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
                     lr=0.01, wd=1e-4,
                     patience = 30, max_epochs=3000):
     #input_dim, hidden_dim, output_dim, n_layers=2, activation='relu', slope=.1, device='cpu', use_bn=False
-    node_classifier = MLP(embeds.shape[1], embeds.shape[1], out_dim,  n_layers=2)
+    #node_classifier = MLP(embeds.shape[1], embeds.shape[1], out_dim,  n_layers=1)
+    node_classifier = LogReg(embeds.shape[1], out_dim)
     train_labels = y[train_mask]
     test_labels = y[test_mask]
     val_labels = y[val_mask]
     optimizer_temp = torch.optim.Adam(node_classifier.parameters(), lr=0.005)
     res_temp = []
     trigger_times = 0
+    last_acc = 0
+    best_epoch = 0
     for epoch_temp in range(max_epochs):
         node_classifier.train();
         optimizer_temp.zero_grad();
@@ -136,7 +141,7 @@ def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
 
 
         current_acc = val_acc
-        if current_acc <= last_loss:
+        if current_acc <= last_acc:
             trigger_times += 1
             #print('Trigger Times:', trigger_times)
             if trigger_times >= patience:
@@ -145,5 +150,7 @@ def node_prediction(embeds, out_dim, y, train_mask, test_mask, val_mask,
         else:
             #print('trigger times: 0')
             trigger_times = 0
+            last_acc = current_acc
+            best_epoch = epoch_temp
 
-    return(node_classifier, res_temp)
+    return(node_classifier, res_temp, best_epoch)
