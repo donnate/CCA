@@ -68,7 +68,7 @@ if args.dataset in ['CS', 'Physics']:
     transform_nodes = RandomNodeSplit(split = 'test_rest',
                                       num_train_per_class = args.num_train_per_class,
                                       num_val = 500)
-    rand_data = transform_nodes(data)
+    data = transform_nodes(data)
 
 
 if args.dataset in ['Computers', 'Photo']:
@@ -77,7 +77,7 @@ if args.dataset in ['Computers', 'Photo']:
     transform_nodes = RandomNodeSplit(split = 'test_rest',
                                           num_train_per_class = args.num_train_per_class,
                                           num_val = 500)
-    rand_data = transform_nodes(data)
+    data = transform_nodes(data)
 
 if args.non_linear == 'relu':
     activation  = torch.nn.ReLU()
