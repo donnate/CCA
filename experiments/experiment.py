@@ -1,7 +1,7 @@
 import sys, os
 import os.path as osp
 import numpy as np
-sys.path.append('../../cca')
+sys.path.append('/scratch/midway3/cdonnat/CCA')
 
 import argparse
 import pandas as pd
@@ -58,7 +58,7 @@ file_path = os.getcwd() + str(args.result_file) + args.model + '_' + args.datase
  str(args.normalize) + '_nonlinear' + str(args.non_linear) + '_lr' + str(args.lr) + '.csv'
 
 print(file_path)
-path =  os.getcwd() + '/data'
+path = '/scratch/midway3/cdonnat/CCA/data'
 if args.dataset in ['Cora', 'CiteSeer', 'PubMed']:
     dataset = Planetoid(root=path  + '/Planetoid', name=args.dataset, transform=T.NormalizeFeatures())
     data = dataset[0]
