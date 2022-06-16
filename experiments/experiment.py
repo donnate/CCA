@@ -71,7 +71,7 @@ if args.dataset in ['CS', 'Physics']:
     rand_data = transform_nodes(data)
 
 
-if args.dataset in ['computers', 'photo']:
+if args.dataset in ['Computers', 'Photo']:
     dataset = Amazon(path, args.dataset, transform=T.NormalizeFeatures())
     data = dataset[0]
     transform_nodes = RandomNodeSplit(split = 'test_rest',
